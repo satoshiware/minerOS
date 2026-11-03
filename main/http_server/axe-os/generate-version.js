@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const version = require('child_process').execSync('git describe --tags --always --dirty').toString().trim();
+const versionFile = path.join(__dirname, '..', '..', '..', 'version.txt');
+const version = fs.readFileSync(versionFile, 'utf8').trim();
 
 const outputPath = path.join(__dirname, 'dist', 'axe-os', 'version.txt');
 fs.writeFileSync(outputPath, version);

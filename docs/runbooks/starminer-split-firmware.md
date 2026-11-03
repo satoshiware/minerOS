@@ -1,6 +1,6 @@
 # Starminer split firmware
 
-Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Nothing has been installed. The only install target is the Starminer at `http://192.168.38.62` (GammaV2, board `601a-1`, firmware `V1.0.1-rc.5`). `yysluping` at `http://192.168.38.75` is a stock Gamma board `601` on Bitaxe `v2.15.4` and is not a target of this image.
+Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Nothing has been installed. The only miner in this plan is the Starminer at `http://192.168.38.62` (GammaV2, board `601a-1`, one BM1370, firmware `V1.0.1-rc.5`).
 
 This runbook is the whole handoff. A new session should follow it and should not reconstruct the design from chat history.
 
@@ -9,18 +9,21 @@ This runbook adds split mining to StarMiner. The bench proves it on the Starmine
 ## Decisions already made
 
 - The bench miner is the Starminer at `192.168.38.62`. Every test is done from its AxeOS pages over Wi-Fi. The computer never installs firmware over USB.
-- Do not install a bitaxeorg image on this miner, including `phase0/esp-miner-v2.15.4.bin`. Starminer’s own page says that bricks this device. Do not install a Starminer image on `yysluping`.
+- Do not install a bitaxeorg image on this miner, including `phase0/esp-miner-v2.15.4.bin`. Starminer’s own page says that bricks this device.
 - Stock StarMiner AxeOS has no split. The work is on the fork [baveet256/StarMiner](https://github.com/baveet256/StarMiner). AxeOS is the Angular app at `main/http_server/axe-os`. The build uses ESP-IDF v5.5.3, which is what this tree’s CI pins. The device reports v5.5.2.
 - The **Pool** page on this tree has two forms: **Pool Configuration** and **Fallback Pool Configuration**. It does not have eight pool cards. Pool 1 is the primary form. Pool 2 is the fallback form. Pool 3 is a third form this work adds. There is no pool 4 through 8.
 - The exchange website does not push settings to the miner.
 - This checkout is the firmware we change. Split sits on top of the stock pool path. It does not replace it.
-- Both bench pools are Azcoin (SHA-256) on the same stratum endpoint. The worker name is what separates the accounts. Protocol on the bench is Stratum V1. Those host and user values are the bench test. They are not built into the firmware. A slot keeps the protocol already stored on that form, V1 or V2.
-- Pool 1 is the slim-circle worker `slims.bhora.bitaxe`. Pool 2 is the frontier-circle worker `frontier.bhora.bitaxe`. Host `mining.btcofaz.com`, port `3336`. The pass/fail reading is that worker’s row on that node’s miner page.
+- The Phase 0 baseline is Pool 1 on `mining.btcofaz.com` port `3336`, worker `slims.bhora.bitaxe`. That host is the reverse proxy. The proxy points at the translator, and the translator points at the pool. Protocol on the bench is Stratum V1. The pass/fail reading is that worker’s row on the node. Those values are the bench test. They are not built into the firmware. A slot keeps the protocol already stored on that form, V1 or V2.
+- Suggested difficulty stays at `1000`, the miner default. Vardiff is enabled toward the translator, so the translator and the pool set the working difficulty.
+- The fallback form is empty. The baseline reading is Pool 1 alone.
+- Pool 2’s address is not set. It is written on the sheet before any phase that opens Pool 2. Pool 3 is written before Phase 5.
+- Frequency and voltage stay at this miner’s defaults: 525 MHz and 1150 mV.
 - The stratum password is typed on the miner only. Do not copy it into git, this file, or the record sheet.
 - Split is even across filled, live forms among Pool 1, Pool 2, and Pool 3. There is no percent field.
 - The **Split** switch on the AxeOS **Pool** page is what makes those forms active. Off, stock fallback behavior stays in force.
-- Do not put a proxy in front of the miner for these tests. Do not change frequency or voltage to make a phase pass.
-- The device board string is `601a-1`. This tree’s GammaV2 entry is board `601a`: one BM1370, 12 V. `601a-1` is not in the table, so this tree would treat the running device as a custom board. The first code change makes `601a-1` use the same GammaV2 config as `601a`. No image is installed before that.
+- Tests use the path already on the miner: reverse proxy, then translator, then pool. Do not add another hop. Do not change frequency, voltage, or suggested difficulty to make a phase pass.
+- The device board string is `601a-1`. The board table maps `601a-1` to the same GammaV2 config as `601a`: one BM1370, 12 V. No image has been installed.
 - The miner is running `V1.0.1-rc.5`. That file is not on disk, and it is not the Git tag `v1.1.5` (`04e8c22`). An update from this computer cannot put `V1.0.1-rc.5` back.
 
 Read these existing files before editing the fork. The slice timer is `main/tasks/create_jobs_task.c`. Pool values are stored from `main/nvs_config.c`. The stock connection is `main/tasks/protocol_coordinator.c`, with `main/tasks/stratum_v1_task.c` and `main/tasks/stratum_v2_task.c`. The page to change is `main/http_server/axe-os`. When Split is on, a share has to be submitted on the session that owned the slice. When Split is off, the stock submit path stays.
@@ -31,7 +34,7 @@ The ASIC drivers stay as they are. Split does not address chips one by one.
 
 ## What “split” means
 
-The bench is one BM1370 on a 12 V GammaV2. Chip count does not pick a different split. This tree also has 1-chip, 2-chip, and 6-chip families. This test installs only on the Starminer at `192.168.38.62`.
+The bench is one BM1370 on a 12 V GammaV2. A Bitaxe Gamma 601 or 602 is the same shape: one chip, roughly 1.0 to 1.8 TH/s. Chip count does not pick a different split. This tree also has 1-chip, 2-chip, and 6-chip families. This test installs only on the Starminer at `192.168.38.62`.
 
 | Filled pools | What the chain does |
 | --- | --- |
@@ -62,10 +65,8 @@ The page keeps the two forms it has now, and this work adds a third form for Poo
 | --- | --- |
 | Pool 1 host | `mining.btcofaz.com` |
 | Pool 1 port | `3336` |
-| Pool 1 user | `slims.bhora.bitaxe` on the slim-circle node |
-| Pool 2 host | `mining.btcofaz.com` |
-| Pool 2 port | `3336` |
-| Pool 2 user | `frontier.bhora.bitaxe` on the frontier-circle node |
+| Pool 1 user | `slims.bhora.bitaxe` |
+| Pool 2 | Not set. The address is written on the record sheet before any phase that opens Pool 2. |
 | Pool 3 | A third host, port, and user written on the record sheet before Phase 5 |
 | Password | The stratum password for that pool. It is typed on the miner and is not copied into this repo. |
 
@@ -122,7 +123,7 @@ The dashboard keeps the existing hashrate card and adds one line per slot:
 
 ```text
 Pool 1 · slims.bhora.bitaxe · 50% of jobs · <hashrate>
-Pool 2 · frontier.bhora.bitaxe · 50% of jobs · <hashrate>
+Pool 2 · <worker> · 50% of jobs · <hashrate>
 Pool 3 · empty
 ```
 
@@ -147,7 +148,7 @@ Every split phase has to pass the job test:
 | 2 | 40% to 60% | 60 minutes |
 | 3 | 25% to 42% | 60 minutes |
 
-If the Phase 0 pool accepts fewer than one share per five minutes, lower the suggested difficulty for the bench before Phase 3 and write the new value on the sheet. The job-log test is still required. The share test needs shares often enough to see them in the window.
+Suggested difficulty stays at `1000`. Vardiff on the translator sets the working difficulty, and the pool handles it from there. The job-log test is still required.
 
 On a multi-chip board, every share from one slice carries that slice’s pool. Chips moving from pool to pool together, as the slices change, is the expected result.
 
@@ -156,8 +157,8 @@ On a multi-chip board, every share from one slice carries that slice’s pool. C
 - The only miner in this test is the bhora Starminer 601 at `http://192.168.38.62`.
 - Do not install a bitaxeorg image, including `phase0/esp-miner-v2.15.4.bin` and the factory `601` file. Starminer says that bricks this device.
 - The last StarMiner image that booted on this GammaV2 is the rollback file, once one exists. `V1.0.1-rc.5` is not on disk. Install from the AxeOS **Update** page.
-- Frequency, voltage, and fan settings stay at the Phase 0 values. An AxeOS firmware update leaves those settings on the miner.
-- The miner connects to the host on the page. No proxy is in between during these tests.
+- Frequency and voltage stay at the miner defaults recorded in Phase 0: 525 MHz and 1150 mV. Fan settings stay as they are. An AxeOS firmware update leaves those settings on the miner.
+- The miner connects to the reverse proxy on the page, `mining.btcofaz.com:3336`. That proxy points at the translator, and the translator points at the pool. Leave that path as it is.
 - Pool passwords stay on the miner.
 - One test image is installed at a time. The dashboard version has to match the phase.
 
@@ -195,6 +196,8 @@ Starminer, http://192.168.38.62
 Model: GammaV2
 Board version: 601a-1
 ASIC: BM1370
+Chip count: 1
+Class hashrate: a single-chip Gamma 601 or 602 is roughly 1.0 to 1.8 TH/s.
 Firmware: V1.0.1-rc.5
 ESP-IDF: v5.5.2
 MAC: 3C:DC:75:FD:C8:54
@@ -204,40 +207,32 @@ Uptime when read: 1 day, 23 hours, 46 minutes, 36 seconds
 Reset reason: Software reset due to exception/panic
 Image that belongs here: Starminer firmware for this board. Not bitaxeorg.
 
-Stock Bitaxe, yysluping, http://192.168.38.75
-Model: Gamma
-Board version: 601
-ASIC: BM1370
-Chip count: 1
-Firmware: v2.15.4
-ESP-IDF: v6.0.2
-MAC: 90:70:69:FB:3A:70
-Wi-Fi SSID: mullets
-Wi-Fi RSSI: -37 dBm
-Uptime when read: 1 week, 3 days, 22 hours, 3 minutes, 44 seconds
-Reset reason: Software reset via esp_restart
-Image that belongs here: bitaxeorg ESP-Miner v2.15.4
-Official update file on disk: phase0/esp-miner-v2.15.4.bin
-Official update SHA-256: b28cd642025217a333f569fd66d433e65d5caa02c5be1a31fde960f7f32631bd
-
-Frequency:
-Voltage:
-Suggested difficulty at baseline:
-Phase 0 node hashrate (30 min):
-Phase 0 dashboard hashrate (30 min):
+Frequency: 525 MHz (miner default)
+Voltage: 1150 mV (miner default)
+Suggested difficulty: 1000 (miner default; vardiff is on toward the translator)
+Path: miner → reverse proxy mining.btcofaz.com:3336 → translator → pool
+Phase 0 node hashrate (30 min): 1.062 TH/s
+Phase 0 node hashrate (1 day): 1.077 TH/s
+Phase 0 dashboard hashrate: about 1.06 TH/s on both the 10-minute and 1-hour averages
+One-pool band (85–115% of 1.062): 0.903 to 1.221 TH/s
+Two-pool band (40–60% of 1.062): 0.425 to 0.637 TH/s
+Three-pool band (25–42% of 1.062): 0.266 to 0.446 TH/s
+Pool 1 host: mining.btcofaz.com
+Pool 1 port: 3336
 Pool 1 user: slims.bhora.bitaxe
-Pool 2 user: frontier.bhora.bitaxe
+Fallback: empty
+Pool 2 host / port / user: not set yet
 Pool 3 host / port / user (before Phase 5):
-Node page for Pool 1:
+Node page for Pool 1: Pool 1 worker on mining.btcofaz.com
 Node page for Pool 2:
 Node page for Pool 3:
 ```
 
-Do not upload `phase0/esp-miner-v2.15.4.bin` to the Starminer at `192.168.38.62`. Do not upload a Starminer image to `yysluping`.
+Do not upload `phase0/esp-miner-v2.15.4.bin` or any other bitaxeorg file to the Starminer at `192.168.38.62`.
 
 | Phase | Date | Dashboard version | Result | Notes |
 | --- | --- | --- | --- | --- |
-| 0 | 2026-11-02 | V1.0.1-rc.5 | not installed | Base is StarMiner `3bf9c3e`. Board `601a-1` is not in that tree yet. Nothing uploaded. |
+| 0 | 2026-11-02 | V1.0.1-rc.5 | readings recorded | Node 1.062 TH/s over 30 min, 1.077 TH/s over a day. AxeOS about 1.06 TH/s at 10 min and 1 hour. Suggested difficulty 1000, vardiff on the translator. Path is reverse proxy, translator, pool. Nothing uploaded. |
 | 1 | | | | |
 | 2 | | | | |
 | 3 | | | | |
@@ -251,7 +246,7 @@ Do not upload `phase0/esp-miner-v2.15.4.bin` to the Starminer at `192.168.38.62`
 
 No split code. No image is uploaded.
 
-The bench AxeOS is `http://192.168.38.62`. It is a Starminer GammaV2, board `601a-1`, firmware `V1.0.1-rc.5`, ESP-IDF v5.5.2. `yysluping` is recorded and is not this install.
+The bench AxeOS is `http://192.168.38.62`. It is a Starminer GammaV2, board `601a-1`, one BM1370, firmware `V1.0.1-rc.5`, ESP-IDF v5.5.2.
 
 ### Pre-checks
 
@@ -259,15 +254,17 @@ The bench AxeOS is `http://192.168.38.62`. It is a Starminer GammaV2, board `601
 - [x] Model, board version, ASIC, and firmware version are on the sheet.
 - [x] This tree’s GammaV2 key is `601a`, one BM1370, 12 V. The device string `601a-1` is not in the table.
 - [x] `V1.0.1-rc.5` is not on disk. Git tag `v1.1.5` is a different commit from master `3bf9c3e`.
-- [ ] Chip count is confirmed on the dashboard. This tree’s GammaV2 entry is one chip.
-- [ ] Pool 1 on the page is the pool that will be the baseline. Fallback is unused for that reading.
-- [ ] The node page for the Pool 1 user is known.
+- [x] Chip count is 1. A Gamma 601 or 602 is a single chip, roughly 1.0 to 1.8 TH/s, and this tree’s GammaV2 entry is one BM1370.
+- [x] Frequency is 525 MHz and voltage is 1150 mV, the miner defaults.
+- [x] Pool 1 is `mining.btcofaz.com:3336`, user `slims.bhora.bitaxe`. The fallback form is empty, so the baseline is that pool alone.
+- [x] The Pool 1 worker on `mining.btcofaz.com` is the node page. Node hashrate is 1.062 TH/s over 30 minutes and 1.077 TH/s over a day. AxeOS is about 1.06 TH/s on the 10-minute average and on the 1-hour average.
+- [x] Suggested difficulty is `1000`. Vardiff is enabled toward the translator. The miner’s host is the reverse proxy, which points at the translator, which points at the pool.
 
 ### Steps
 
 1. Do not install `phase0/esp-miner-v2.15.4.bin` or any other bitaxeorg file on this miner.
 2. Do not install a StarMiner build until `601a-1` is handled as GammaV2, the same config as `601a`.
-3. A 30-minute Pool 1 baseline can be read from AxeOS before any build is installed. Frequency, voltage, and hashrate are not on the sheet yet.
+3. The baseline is on the sheet. Node 30-minute hashrate is 1.062 TH/s. AxeOS 10-minute and 1-hour averages are about 1.06 TH/s. Leave frequency at 525 MHz, voltage at 1150 mV, and suggested difficulty at 1000.
 
 Fail path: an install that does not bring AxeOS back cannot be undone from this computer. `V1.0.1-rc.5` is not on disk.
 
@@ -279,15 +276,15 @@ The image is this StarMiner tree plus a version string. Pool behavior is still o
 
 ### Pre-checks
 
-- [ ] Phase 0 readings are on the sheet, `601a-1` is handled as GammaV2, and no install has been done yet.
-- [ ] The fork builds with `idf.py build`, and `build/esp-miner.bin` is the install file.
-- [ ] The image reports `split-p1`.
+- [x] Phase 0 readings are on the sheet, `601a-1` is handled as GammaV2, and no install has been done yet.
+- [x] The fork builds with `idf.py build`, and `build/esp-miner.bin` is the install file.
+- [x] The built image version is `split-p1`. It has not been installed.
 - [ ] Pool mode will be left on **Fallback** with only Pool 1 set. Frequency and voltage are unchanged.
 
 ### Steps
 
-1. Fork ESP-Miner and build it for this board.
-2. Change only the version shown on the dashboard so it contains `split-p1`.
+1. Build this StarMiner tree. Board `601a-1` uses the same GammaV2 config as `601a`.
+2. The dashboard version comes from `version.txt` and is `split-p1` for both the firmware and AxeOS.
 3. Install `build/esp-miner.bin` from the AxeOS **Update** page.
 4. In AxeOS, set Pool 1. Leave Pool 2 and Pool 3 empty. **Save** and **Restart**.
 
@@ -343,7 +340,7 @@ The miner opens Pool 2 and keeps a job from it. Every job sent to the chain is s
 
 - [ ] Phase 2 post-tests passed.
 - [ ] Image version `split-p3`.
-- [ ] Pool 1 and Pool 2 users on the sheet are the names you will type.
+- [ ] Pool 2’s host, port, and user are on the sheet. They are typed as given. Pool 1 stays `mining.btcofaz.com:3336` / `slims.bhora.bitaxe`.
 - [ ] Both node pages are open.
 - [ ] Pool 3 is empty.
 - [ ] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not.
