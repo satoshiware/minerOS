@@ -10,6 +10,7 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 
 file(READ "${CMAKE_CURRENT_LIST_DIR}/version.txt" _esp_miner_version)
 string(STRIP "${_esp_miner_version}" PROJECT_VER)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CMAKE_CURRENT_LIST_DIR}/version.txt")
 
 project(esp-miner)
 

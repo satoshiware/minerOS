@@ -410,9 +410,14 @@
                             />
                         </div>
 
-                        <p *ngIf="info.splitMode" class="text-sm mt-0 mb-3">
-                            Jobs are forced to Pool 1. Pool 2 is {{ info.pool2Connected ? 'connected' : 'down' }} and has {{ info.pool2JobPercent }}% of jobs.
-                        </p>
+                        <div *ngIf="info.splitMode" class="text-sm mt-0 mb-3">
+                            <div>Pool 1 · {{ info.stratumUser }} · {{ info.pool1JobPercent }}% of jobs · {{ ((info.hashRate || 0) * (info.pool1JobPercent || 0) / 100) | hashSuffix }}</div>
+                            <div *ngIf="info.pool2Connected; else pool2Down">Pool 2 · {{ info.fallbackStratumUser }} · {{ info.pool2JobPercent }}% of jobs · {{ ((info.hashRate || 0) * (info.pool2JobPercent || 0) / 100) | hashSuffix }}</div>
+                            <ng-template #pool2Down>
+                                <div>Pool 2 · {{ info.fallbackStratumUser }} · down</div>
+                            </ng-template>
+                            <div>Pool 3 · empty</div>
+                        </div>
 
                         <div class="flex flex-nowrap">
                             <div class="col-fixed-width text-500">

@@ -1,6 +1,6 @@
 # Starminer split firmware
 
-Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 3 passed on 2026-11-04. The miner at `http://192.168.38.62` is running `split-p3` with Pool mode set back to Fallback. `build/` is that image. The `split-p2` rollback copies are `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk.
+Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 3 passed on 2026-11-04. The miner at `http://192.168.38.62` is still running `split-p3` with Pool mode Fallback until `split-p4` is installed. `build/` is the uninstalled `split-p4` image. The booted `split-p3` copies are `../phase3/esp-miner.bin` and `../phase3/www.bin`. The `split-p2` copies are `../phase2/`. `V1.0.1-rc.5` is not on disk.
 
 This runbook is the whole handoff. A new session should follow it and should not reconstruct the design from chat history.
 
@@ -25,7 +25,7 @@ This runbook adds split mining to StarMiner. The bench proves it on the Starmine
 - The **Split** switch on the AxeOS **Pool** page is what makes those forms active. Off, stock fallback behavior stays in force.
 - Tests use the path already on the miner: reverse proxy, then translator, then pool. Do not add another hop. Do not change frequency, voltage, or suggested difficulty to make a phase pass.
 - The device board string before the update was `601a-1`. The board table maps `601a-1` to the same GammaV2 config as `601a`: one BM1370, 12 V. After `split-p1` the API reports board `601a`.
-- The miner is running `split-p3` with Pool mode Fallback. `V1.0.1-rc.5` is not on disk, and it is not the Git tag `v1.1.5` (`04e8c22`). An update from this computer cannot put `V1.0.1-rc.5` back. `build/esp-miner.bin` SHA-256 `c098387f749fcd64b4a7cc8552257e2bf243e48e48d67a66bebc1d57123eafce`. `build/www.bin` SHA-256 `00f0cb6abd470a7130df824a2a23f2d9a4d78a8ddac7e28c1608ea47104dd368`. The `split-p2` copies are `../phase2/esp-miner.bin`, SHA-256 `e8ccc0bdf15cd7ad307e3bb3dd5978b091cdfe78a94ab85a97ff02d47235ef6d`, and `../phase2/www.bin`, SHA-256 `9b460f8bc189538f6853118a2e0a70b2b826da79fd6ca62359b3c79ab2d29763`. The earlier `split-p1` hashes were `c2d755419bea5bb8dcef738ff4ff44f3d41791d1d6e2511fadba6fd086c1d204` and `e08059018f5fcaeb4fd2c33efc4392548ee71c9396c639479a344bb5efc1491d`.
+- The miner is still running `split-p3` with Pool mode Fallback until `split-p4` is installed. `V1.0.1-rc.5` is not on disk, and it is not the Git tag `v1.1.5` (`04e8c22`). An update from this computer cannot put `V1.0.1-rc.5` back. `build/` is `split-p4`: `esp-miner.bin` SHA-256 `e4edb96e3582ca163d18b3ff0819afb8b113e4632217f5cdccd5c4e2cf910b2e`, `www.bin` SHA-256 `3f8c40085a3a28bdeab5a372c4d3acc1eca4fe5364a133f622d3a907343a6973`. The booted `split-p3` copies are `../phase3/esp-miner.bin` SHA-256 `c098387f749fcd64b4a7cc8552257e2bf243e48e48d67a66bebc1d57123eafce` and `../phase3/www.bin` SHA-256 `00f0cb6abd470a7130df824a2a23f2d9a4d78a8ddac7e28c1608ea47104dd368`. The `split-p2` copies are `../phase2/esp-miner.bin` SHA-256 `e8ccc0bdf15cd7ad307e3bb3dd5978b091cdfe78a94ab85a97ff02d47235ef6d` and `../phase2/www.bin` SHA-256 `9b460f8bc189538f6853118a2e0a70b2b826da79fd6ca62359b3c79ab2d29763`.
 
 Read these existing files before editing the fork. The slice timer is `main/tasks/create_jobs_task.c`. Pool values are stored from `main/nvs_config.c`. The stock connection is `main/tasks/protocol_coordinator.c`, with `main/tasks/stratum_v1_task.c` and `main/tasks/stratum_v2_task.c`. The page to change is `main/http_server/axe-os`. When Split is on, a share has to be submitted on the session that owned the slice. When Split is off, the stock submit path stays.
 
@@ -389,8 +389,8 @@ Filling Pool 1 and Pool 2, setting **Pool mode** to **Split**, and restarting sh
 ### Pre-checks
 
 - [x] Phase 3 post-tests passed.
-- [ ] Image version `split-p4` has no force-to-Pool-1 override.
-- [ ] Chip count on the sheet is still the one you will test against.
+- [x] Image version `split-p4` has no force-to-Pool-1 override. Built, not installed. `build/esp-miner.bin` SHA-256 `e4edb96e3582ca163d18b3ff0819afb8b113e4632217f5cdccd5c4e2cf910b2e`. `build/www.bin` SHA-256 `3f8c40085a3a28bdeab5a372c4d3acc1eca4fe5364a133f622d3a907343a6973`.
+- [x] Chip count on the sheet is still the one you will test against.
 - [ ] Both node pages are open.
 - [ ] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not.
 
@@ -414,7 +414,7 @@ Filling Pool 1 and Pool 2, setting **Pool mode** to **Split**, and restarting sh
 - [ ] Restart again without editing pools. The same split returns after warmup.
 - [ ] **Fallback** mode, after a restart, hashes only the primary pool.
 
-Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk.
+Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall the booted `split-p3` image from `../phase3/esp-miner.bin` and `../phase3/www.bin`. `V1.0.1-rc.5` is not on disk.
 
 ---
 

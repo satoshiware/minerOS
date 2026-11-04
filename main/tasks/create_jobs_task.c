@@ -17,13 +17,17 @@
 #include "stratum_v2_task.h"
 #include "utils.h"
 #include "split_log.h"
+#include "split_pool2_task.h"
+#include "nvs_config.h"
 
 static const char *TAG = "create_jobs_task";
 
 #define MAX_EXTRANONCE2_LEN 32
 #define MAX_EXTRANONCE2_STR (MAX_EXTRANONCE2_LEN * 2 + 1)
 
-static void generate_work(GlobalState *GLOBAL_STATE, mining_notify *notification, uint64_t extranonce_2, double difficulty);
+static bool generate_work(GlobalState *GLOBAL_STATE, mining_notify *notification, uint64_t extranonce_2, double difficulty,
+                          const char *extranonce_str, int extranonce_2_len, uint32_t version_mask, uint8_t pool_slot);
+static void send_v1_slice(GlobalState *GLOBAL_STATE, mining_notify *notification, uint64_t *extranonce_2, double difficulty);
 static void generate_work_sv2(GlobalState *GLOBAL_STATE, sv2_job_t *job, double difficulty);
 static void generate_work_sv2_ext(GlobalState *GLOBAL_STATE, sv2_ext_job_t *job, double difficulty, uint64_t extranonce_2_counter);
 
@@ -182,24 +186,27 @@ void create_jobs_task(void *pvParameters)
                 generate_work_sv2(GLOBAL_STATE, (sv2_job_t *)current_work, difficulty);
             }
         } else {
-            generate_work(GLOBAL_STATE, (mining_notify *)current_work, extranonce_2, difficulty);
-            extranonce_2++;
+            send_v1_slice(GLOBAL_STATE, (mining_notify *)current_work, &extranonce_2, difficulty);
         }
         timeout_ms = ASIC_get_asic_job_frequency_ms(GLOBAL_STATE);
     }
 }
 
-static void generate_work(GlobalState *GLOBAL_STATE, mining_notify *notification, uint64_t extranonce_2, double difficulty)
+static bool generate_work(GlobalState *GLOBAL_STATE, mining_notify *notification, uint64_t extranonce_2, double difficulty,
+                          const char *extranonce_str, int extranonce_2_len, uint32_t version_mask, uint8_t pool_slot)
 {
-    if (GLOBAL_STATE->extranonce_2_len > MAX_EXTRANONCE2_LEN) {
-        ESP_LOGE(TAG, "extranonce_2_len %d exceeds maximum %d, skipping job", GLOBAL_STATE->extranonce_2_len, MAX_EXTRANONCE2_LEN);
-        return;
+    if (notification == NULL || extranonce_str == NULL || extranonce_str[0] == '\0') {
+        return false;
+    }
+    if (extranonce_2_len > MAX_EXTRANONCE2_LEN) {
+        ESP_LOGE(TAG, "extranonce_2_len %d exceeds maximum %d, skipping job", extranonce_2_len, MAX_EXTRANONCE2_LEN);
+        return false;
     }
     char extranonce_2_str[MAX_EXTRANONCE2_STR];
-    extranonce_2_generate(extranonce_2, GLOBAL_STATE->extranonce_2_len, extranonce_2_str);
+    extranonce_2_generate(extranonce_2, extranonce_2_len, extranonce_2_str);
 
     uint8_t coinbase_tx_hash[32];
-    calculate_coinbase_tx_hash(notification->coinbase_1, notification->coinbase_2, GLOBAL_STATE->extranonce_str, extranonce_2_str, coinbase_tx_hash);
+    calculate_coinbase_tx_hash(notification->coinbase_1, notification->coinbase_2, extranonce_str, extranonce_2_str, coinbase_tx_hash);
 
     uint8_t merkle_root[32];
     calculate_merkle_root_hash(coinbase_tx_hash, (uint8_t(*)[32])notification->merkle_branches, notification->n_merkle_branches, merkle_root);
@@ -208,14 +215,14 @@ static void generate_work(GlobalState *GLOBAL_STATE, mining_notify *notification
 
     if (next_job == NULL) {
         ESP_LOGE(TAG, "Failed to allocate memory for new job");
-        return;
+        return false;
     }
 
-    construct_bm_job(notification, merkle_root, GLOBAL_STATE->version_mask, difficulty, next_job);
+    construct_bm_job(notification, merkle_root, version_mask, difficulty, next_job);
 
     next_job->extranonce2 = strdup(extranonce_2_str);
     next_job->jobid = strdup(notification->job_id);
-    next_job->version_mask = GLOBAL_STATE->version_mask;
+    next_job->version_mask = version_mask;
 
     // Check if ASIC is initialized before trying to send work
     if (!GLOBAL_STATE->ASIC_initalized) {
@@ -225,12 +232,70 @@ static void generate_work(GlobalState *GLOBAL_STATE, mining_notify *notification
         free(next_job->jobid);
         free(next_job->extranonce2);
         free(next_job);
+        return false;
+    }
+
+    next_job->pool_slot = pool_slot;
+    ASIC_send_work(GLOBAL_STATE, next_job);
+    split_log_job(TAG, next_job->pool_slot, next_job->jobid);
+    return true;
+}
+
+static void send_v1_slice(GlobalState *GLOBAL_STATE, mining_notify *notification, uint64_t *extranonce_2, double difficulty)
+{
+    bool split = nvs_config_get_bool(NVS_CONFIG_SPLIT_MODE) && !GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback;
+    bool pool2 = split && split_pool2_has_job();
+    static bool prev_split = false;
+    static bool prev_pool2 = false;
+    static uint32_t sent1 = 0;
+    static uint32_t sent2 = 0;
+    static uint64_t extranonce_2_pool2 = 0;
+
+    if (split != prev_split || pool2 != prev_pool2) {
+        sent1 = 0;
+        sent2 = 0;
+        prev_split = split;
+        prev_pool2 = pool2;
+    }
+
+    if (!split) {
+        generate_work(GLOBAL_STATE, notification, *extranonce_2, difficulty,
+                      GLOBAL_STATE->extranonce_str, GLOBAL_STATE->extranonce_2_len,
+                      GLOBAL_STATE->version_mask, split_pool_slot(GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback));
+        (*extranonce_2)++;
         return;
     }
 
-    next_job->pool_slot = split_pool_slot(GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback);
-    ASIC_send_work(GLOBAL_STATE, next_job);
-    split_log_job(TAG, next_job->pool_slot, next_job->jobid);
+    /* Tied counts take Pool 1, so two live pools alternate 1, 2, 1, 2. */
+    uint8_t slot = (pool2 && sent2 < sent1) ? 2 : 1;
+    if (slot == 2) {
+        mining_notify *pool2_notify = NULL;
+        int pool2_en2_len = 0;
+        double pool2_diff = 0;
+        char pool2_extranonce_buf[128];
+        if (!split_pool2_copy_job(&pool2_notify, pool2_extranonce_buf, sizeof(pool2_extranonce_buf), &pool2_en2_len, &pool2_diff)) {
+            slot = 1;
+        } else if (generate_work(GLOBAL_STATE, pool2_notify, extranonce_2_pool2, pool2_diff,
+                                 pool2_extranonce_buf, pool2_en2_len, GLOBAL_STATE->version_mask, 2)) {
+            STRATUM_V1_free_mining_notify(pool2_notify);
+            extranonce_2_pool2++;
+            sent2++;
+        } else {
+            STRATUM_V1_free_mining_notify(pool2_notify);
+            slot = 1;
+        }
+    }
+    if (slot == 1) {
+        if (generate_work(GLOBAL_STATE, notification, *extranonce_2, difficulty,
+                          GLOBAL_STATE->extranonce_str, GLOBAL_STATE->extranonce_2_len,
+                          GLOBAL_STATE->version_mask, 1)) {
+            sent1++;
+        }
+        (*extranonce_2)++;
+    }
+
+    GLOBAL_STATE->SYSTEM_MODULE.split_sent_pool1 = sent1;
+    GLOBAL_STATE->SYSTEM_MODULE.split_sent_pool2 = sent2;
 }
 
 // Construct bm_job directly from SV2 fields (no coinbase/merkle computation needed).

@@ -1,21 +1,98 @@
 #include "split_pool2_task.h"
 
-#include "global_state.h"
 #include "split_log.h"
 #include "nvs_config.h"
-#include "stratum_api.h"
+#include "system.h"
 
 #include "esp_log.h"
+#include "esp_timer.h"
 #include "esp_transport.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+#include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static const char *TAG = "split_pool2";
 static char s_acc[8192];
 
-/* Split on, Pool 1 still mining, Pool 2 filled with Stratum V1. */
+static pthread_mutex_t s_lock = PTHREAD_MUTEX_INITIALIZER;
+static esp_transport_handle_t s_transport = NULL;
+static mining_notify *s_notify = NULL;
+static char s_extranonce[128];
+static int s_extranonce2_len = 0;
+static double s_difficulty = 0;
+static char s_user[128];
+static int s_uid = 1;
+static bool s_connected = false;
+
+#define PENDING_SHARES 16
+
+typedef struct {
+    int id;
+    uint8_t chip;
+    char job_id[32];
+    bool used;
+} pending_share_t;
+
+static pending_share_t s_pending[PENDING_SHARES];
+
+static void clear_pending(void)
+{
+    memset(s_pending, 0, sizeof(s_pending));
+}
+
+static void remember_share(int id, uint8_t chip, const char *job_id)
+{
+    pending_share_t *slot = &s_pending[0];
+    for (int i = 0; i < PENDING_SHARES; i++) {
+        if (!s_pending[i].used) {
+            slot = &s_pending[i];
+            break;
+        }
+    }
+    slot->id = id;
+    slot->chip = chip;
+    slot->used = true;
+    snprintf(slot->job_id, sizeof(slot->job_id), "%s", job_id ? job_id : "");
+}
+
+static bool take_pending(int id, uint8_t *chip, char *job_id, size_t job_id_len)
+{
+    for (int i = 0; i < PENDING_SHARES; i++) {
+        if (s_pending[i].used && s_pending[i].id == id) {
+            if (chip) {
+                *chip = s_pending[i].chip;
+            }
+            if (job_id && job_id_len > 0) {
+                snprintf(job_id, job_id_len, "%s", s_pending[i].job_id);
+            }
+            s_pending[i].used = false;
+            return true;
+        }
+    }
+    return false;
+}
+
+static void drop_session_locked(GlobalState *gs)
+{
+    s_connected = false;
+    s_difficulty = 0;
+    s_extranonce[0] = '\0';
+    s_extranonce2_len = 0;
+    s_user[0] = '\0';
+    if (s_notify) {
+        STRATUM_V1_free_mining_notify(s_notify);
+        s_notify = NULL;
+    }
+    clear_pending();
+    gs->SYSTEM_MODULE.split_pool2_connected = false;
+    gs->SYSTEM_MODULE.split_pool2_job_id[0] = '\0';
+}
+
+/* Split on, Pool 1 still the primary session, Pool 2 filled with Stratum V1. */
 static bool pool2_listen_enabled(GlobalState *gs)
 {
     if (!nvs_config_get_bool(NVS_CONFIG_SPLIT_MODE)) {
@@ -41,6 +118,98 @@ static bool pool2_listen_enabled(GlobalState *gs)
     return ok;
 }
 
+bool split_pool2_has_job(void)
+{
+    pthread_mutex_lock(&s_lock);
+    bool ready = s_connected && s_notify != NULL && s_extranonce[0] != '\0' && s_difficulty > 0;
+    pthread_mutex_unlock(&s_lock);
+    return ready;
+}
+
+bool split_pool2_copy_job(mining_notify **notify, char *extranonce, size_t extranonce_len, int *extranonce2_len, double *difficulty)
+{
+    pthread_mutex_lock(&s_lock);
+    if (!s_connected || s_notify == NULL || s_extranonce[0] == '\0' || s_difficulty <= 0 ||
+        s_notify->job_id == NULL || s_notify->coinbase_1 == NULL || s_notify->coinbase_2 == NULL ||
+        s_notify->prev_block_hash == NULL) {
+        pthread_mutex_unlock(&s_lock);
+        return false;
+    }
+
+    mining_notify *copy = calloc(1, sizeof(*copy));
+    if (copy == NULL) {
+        pthread_mutex_unlock(&s_lock);
+        return false;
+    }
+    copy->job_id = strdup(s_notify->job_id);
+    copy->prev_block_hash = strdup(s_notify->prev_block_hash);
+    copy->coinbase_1 = strdup(s_notify->coinbase_1);
+    copy->coinbase_2 = strdup(s_notify->coinbase_2);
+    copy->n_merkle_branches = s_notify->n_merkle_branches;
+    if (copy->n_merkle_branches > 0 && s_notify->merkle_branches != NULL) {
+        copy->merkle_branches = malloc(HASH_SIZE * copy->n_merkle_branches);
+        if (copy->merkle_branches != NULL) {
+            memcpy(copy->merkle_branches, s_notify->merkle_branches, HASH_SIZE * copy->n_merkle_branches);
+        }
+    }
+    copy->version = s_notify->version;
+    copy->target = s_notify->target;
+    copy->ntime = s_notify->ntime;
+    copy->clean_jobs = s_notify->clean_jobs;
+    snprintf(extranonce, extranonce_len, "%s", s_extranonce);
+    *extranonce2_len = s_extranonce2_len;
+    *difficulty = s_difficulty;
+    pthread_mutex_unlock(&s_lock);
+
+    if (copy->job_id == NULL || copy->prev_block_hash == NULL || copy->coinbase_1 == NULL || copy->coinbase_2 == NULL ||
+        (copy->n_merkle_branches > 0 && copy->merkle_branches == NULL)) {
+        STRATUM_V1_free_mining_notify(copy);
+        return false;
+    }
+    *notify = copy;
+    return true;
+}
+
+bool split_pool2_submit_share(GlobalState *gs, const char *job_id, const char *extranonce2,
+                              uint32_t ntime, uint32_t nonce, uint32_t version_bits, uint8_t chip)
+{
+    esp_transport_handle_t transport = NULL;
+    char user[128];
+    int id = 0;
+
+    pthread_mutex_lock(&s_lock);
+    if (s_transport == NULL || s_user[0] == '\0') {
+        pthread_mutex_unlock(&s_lock);
+        split_log_share(TAG, chip, 2, job_id, false);
+        return false;
+    }
+    transport = s_transport;
+    snprintf(user, sizeof(user), "%s", s_user);
+    id = s_uid++;
+    remember_share(id, chip, job_id);
+    pthread_mutex_unlock(&s_lock);
+
+    char submit_msg[1024];
+    snprintf(submit_msg, sizeof(submit_msg),
+             "{\"id\":%d,\"method\":\"mining.submit\",\"params\":[\"%s\",\"%s\",\"%s\",\"%08lx\",\"%08lx\",\"%08lx\"]}\n",
+             id, user, job_id ? job_id : "", extranonce2 ? extranonce2 : "",
+             (unsigned long)ntime, (unsigned long)nonce, (unsigned long)version_bits);
+
+    int ret = esp_transport_write(transport, submit_msg, strlen(submit_msg), 5000);
+    if (ret < 0) {
+        uint8_t logged_chip = chip;
+        char logged_job[32];
+        pthread_mutex_lock(&s_lock);
+        take_pending(id, &logged_chip, logged_job, sizeof(logged_job));
+        pthread_mutex_unlock(&s_lock);
+        split_log_share(TAG, logged_chip, 2, logged_job[0] ? logged_job : job_id, false);
+        (void)gs;
+        return false;
+    }
+    (void)gs;
+    return true;
+}
+
 static void handle_line(GlobalState *gs, esp_transport_handle_t transport, const char *line)
 {
     if (line[0] == '\0') {
@@ -55,13 +224,46 @@ static void handle_line(GlobalState *gs, esp_transport_handle_t transport, const
     }
 
     if (msg.method == MINING_NOTIFY && msg.mining_notification && msg.mining_notification->job_id) {
-        strncpy(gs->SYSTEM_MODULE.split_pool2_job_id, msg.mining_notification->job_id,
-                sizeof(gs->SYSTEM_MODULE.split_pool2_job_id) - 1);
-        gs->SYSTEM_MODULE.split_pool2_job_id[sizeof(gs->SYSTEM_MODULE.split_pool2_job_id) - 1] = '\0';
+        pthread_mutex_lock(&s_lock);
+        if (s_notify) {
+            STRATUM_V1_free_mining_notify(s_notify);
+        }
+        s_notify = msg.mining_notification;
+        msg.mining_notification = NULL;
+        snprintf(gs->SYSTEM_MODULE.split_pool2_job_id, sizeof(gs->SYSTEM_MODULE.split_pool2_job_id),
+                 "%s", s_notify->job_id);
+        s_connected = true;
         gs->SYSTEM_MODULE.split_pool2_connected = true;
+        pthread_mutex_unlock(&s_lock);
         split_log_pooljob(TAG, 2, gs->SYSTEM_MODULE.split_pool2_job_id);
+    } else if (msg.method == MINING_SET_DIFFICULTY) {
+        pthread_mutex_lock(&s_lock);
+        s_difficulty = msg.new_difficulty;
+        pthread_mutex_unlock(&s_lock);
+        ESP_LOGI(TAG, "Pool 2 difficulty %.2f", msg.new_difficulty);
+    } else if (msg.method == MINING_SET_EXTRANONCE || msg.method == STRATUM_RESULT_SUBSCRIBE) {
+        if (msg.extranonce_str) {
+            pthread_mutex_lock(&s_lock);
+            snprintf(s_extranonce, sizeof(s_extranonce), "%s", msg.extranonce_str);
+            s_extranonce2_len = msg.extranonce_2_len;
+            pthread_mutex_unlock(&s_lock);
+        }
     } else if (msg.method == MINING_PING) {
         STRATUM_V1_pong(transport, msg.message_id);
+    } else if (msg.method == STRATUM_RESULT) {
+        uint8_t chip = 0;
+        char job_id[32] = "";
+        pthread_mutex_lock(&s_lock);
+        bool share = take_pending(msg.message_id, &chip, job_id, sizeof(job_id));
+        pthread_mutex_unlock(&s_lock);
+        if (share) {
+            if (msg.response_success) {
+                SYSTEM_notify_accepted_share(gs);
+            } else {
+                SYSTEM_notify_rejected_share(gs, msg.error_str);
+            }
+            split_log_share(TAG, chip, 2, job_id, msg.response_success);
+        }
     }
 
     STRATUM_V1_reset_message(&msg);
@@ -86,7 +288,7 @@ static void read_session(GlobalState *gs, esp_transport_handle_t transport)
             continue;
         }
 
-        acc_len += (size_t) n;
+        acc_len += (size_t)n;
         s_acc[acc_len] = '\0';
 
         char *nl;
@@ -96,7 +298,7 @@ static void read_session(GlobalState *gs, esp_transport_handle_t transport)
                 nl[-1] = '\0';
             }
             handle_line(gs, transport, s_acc);
-            size_t used = (size_t) (nl + 1 - s_acc);
+            size_t used = (size_t)(nl + 1 - s_acc);
             size_t rest = acc_len - used;
             memmove(s_acc, nl + 1, rest + 1);
             acc_len = rest;
@@ -106,11 +308,14 @@ static void read_session(GlobalState *gs, esp_transport_handle_t transport)
 
 void split_pool2_task(void *pvParameters)
 {
-    GlobalState *gs = (GlobalState *) pvParameters;
+    GlobalState *gs = (GlobalState *)pvParameters;
 
     while (1) {
         if (!pool2_listen_enabled(gs)) {
-            gs->SYSTEM_MODULE.split_pool2_connected = false;
+            pthread_mutex_lock(&s_lock);
+            s_transport = NULL;
+            drop_session_locked(gs);
+            pthread_mutex_unlock(&s_lock);
             vTaskDelay(pdMS_TO_TICKS(1000));
             continue;
         }
@@ -124,13 +329,15 @@ void split_pool2_task(void *pvParameters)
         uint16_t tls = nvs_config_get_u16(NVS_CONFIG_FALLBACK_STRATUM_TLS);
         bool extranonce = nvs_config_get_bool(NVS_CONFIG_FALLBACK_STRATUM_EXTRANONCE_SUBSCRIBE);
 
-        esp_transport_handle_t transport = STRATUM_V1_transport_init((tls_mode) tls, cert);
+        esp_transport_handle_t transport = STRATUM_V1_transport_init((tls_mode)tls, cert);
         if (!transport || url == NULL || user == NULL) {
             free(url);
             free(user);
             free(pass);
             free(cert);
-            gs->SYSTEM_MODULE.split_pool2_connected = false;
+            pthread_mutex_lock(&s_lock);
+            drop_session_locked(gs);
+            pthread_mutex_unlock(&s_lock);
             vTaskDelay(pdMS_TO_TICKS(10000));
             continue;
         }
@@ -144,35 +351,61 @@ void split_pool2_task(void *pvParameters)
             free(user);
             free(pass);
             free(cert);
-            gs->SYSTEM_MODULE.split_pool2_connected = false;
+            pthread_mutex_lock(&s_lock);
+            drop_session_locked(gs);
+            pthread_mutex_unlock(&s_lock);
             vTaskDelay(pdMS_TO_TICKS(10000));
             continue;
         }
 
-        int uid = 1;
+        pthread_mutex_lock(&s_lock);
+        s_transport = transport;
+        s_uid = 1;
+        s_difficulty = 0;
+        s_extranonce[0] = '\0';
+        clear_pending();
+        snprintf(s_user, sizeof(s_user), "%s", user);
+        int uid = s_uid++;
+        pthread_mutex_unlock(&s_lock);
+
         const char *asic_name = gs->DEVICE_CONFIG.family.asic.name;
-        STRATUM_V1_subscribe(transport, uid++, asic_name ? asic_name : "bitaxe");
-        STRATUM_V1_authorize(transport, uid++, user, pass ? pass : "");
+        STRATUM_V1_subscribe(transport, uid, asic_name ? asic_name : "bitaxe");
+        pthread_mutex_lock(&s_lock);
+        uid = s_uid++;
+        pthread_mutex_unlock(&s_lock);
+        STRATUM_V1_authorize(transport, uid, user, pass ? pass : "");
+        pthread_mutex_lock(&s_lock);
+        uid = s_uid++;
+        pthread_mutex_unlock(&s_lock);
         uint32_t version_mask = 0;
-        STRATUM_V1_configure_version_rolling(transport, uid++, &version_mask);
+        STRATUM_V1_configure_version_rolling(transport, uid, &version_mask);
         if (diff != 0) {
-            STRATUM_V1_suggest_difficulty(transport, uid++, diff);
+            pthread_mutex_lock(&s_lock);
+            uid = s_uid++;
+            pthread_mutex_unlock(&s_lock);
+            STRATUM_V1_suggest_difficulty(transport, uid, diff);
         }
         if (extranonce) {
-            STRATUM_V1_extranonce_subscribe(transport, uid++);
+            pthread_mutex_lock(&s_lock);
+            uid = s_uid++;
+            pthread_mutex_unlock(&s_lock);
+            STRATUM_V1_extranonce_subscribe(transport, uid);
         }
 
-        ESP_LOGI(TAG, "Pool 2 session open, jobs stay on Pool 1");
+        ESP_LOGI(TAG, "Pool 2 session open");
         read_session(gs, transport);
 
-        gs->SYSTEM_MODULE.split_pool2_connected = false;
-        gs->SYSTEM_MODULE.split_pool2_job_id[0] = '\0';
+        pthread_mutex_lock(&s_lock);
+        s_transport = NULL;
+        drop_session_locked(gs);
+        pthread_mutex_unlock(&s_lock);
         esp_transport_close(transport);
         esp_transport_destroy(transport);
         free(url);
         free(user);
         free(pass);
         free(cert);
+        (void)diff;
         vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }
