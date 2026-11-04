@@ -6,6 +6,7 @@
 #include "stratum_v1_task.h"
 #include "stratum_socket.h"
 #include "protocol_coordinator.h"
+#include "split_log.h"
 #include "connect.h"
 #include "work_queue.h"
 #include <esp_sntp.h>
@@ -415,6 +416,10 @@ void stratum_v1_task(void *pvParameters)
                     {
                         float response_time_ms = STRATUM_V1_get_response_time_ms(stratum_api_v1_message.message_id, receive_time_us);
                         if (response_time_ms >= 0) {
+                            uint8_t chip = 0;
+                            uint8_t pool_slot = 0;
+                            char job_id[32] = "";
+                            bool have_share = STRATUM_V1_take_share(stratum_api_v1_message.message_id, &chip, &pool_slot, job_id, sizeof(job_id));
                             if (stratum_api_v1_message.response_success) {
                                 ESP_LOGI(TAG, "message result accepted");
                                 ESP_LOGI(TAG, "Stratum response time: %.1f ms", response_time_ms);
@@ -423,6 +428,9 @@ void stratum_v1_task(void *pvParameters)
                             } else {
                                 ESP_LOGW(TAG, "message result rejected: %s", stratum_api_v1_message.error_str);
                                 SYSTEM_notify_rejected_share(GLOBAL_STATE, stratum_api_v1_message.error_str);
+                            }
+                            if (have_share) {
+                                split_log_share(TAG, chip, pool_slot, job_id, stratum_api_v1_message.response_success);
                             }
                         } else {
                             // Reset retry attempts after successfully receiving data.

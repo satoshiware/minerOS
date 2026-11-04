@@ -14,6 +14,7 @@
 #include "freertos/task.h"
 #include "scoreboard.h"
 #include "self_test.h"
+#include "split_log.h"
 
 static const char *TAG = "asic_result";
 
@@ -116,8 +117,15 @@ void ASIC_result_task(void *pvParameters)
                         version_bits,
                         &sent_time_us);
 
+                    STRATUM_V1_note_share(uid, asic_result->asic_nr, active_job->pool_slot, active_job->jobid);
                     if (ret < 0) {
                         ESP_LOGW(TAG, "Unable to write share to socket (ret: %d, errno %d: %s)", ret, errno, strerror(errno));
+                        uint8_t chip = 0;
+                        uint8_t pool_slot = 0;
+                        char job_id[32];
+                        if (STRATUM_V1_take_share(uid, &chip, &pool_slot, job_id, sizeof(job_id))) {
+                            split_log_share(TAG, chip, pool_slot, job_id, false);
+                        }
                         // stratum_task recv loop will detect a broken connection on its next read and handle reconnection
                     }
 

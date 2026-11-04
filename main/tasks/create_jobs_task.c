@@ -16,6 +16,7 @@
 #include "stratum_api.h"
 #include "stratum_v2_task.h"
 #include "utils.h"
+#include "split_log.h"
 
 static const char *TAG = "create_jobs_task";
 
@@ -227,7 +228,9 @@ static void generate_work(GlobalState *GLOBAL_STATE, mining_notify *notification
         return;
     }
 
+    next_job->pool_slot = split_pool_slot(GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback);
     ASIC_send_work(GLOBAL_STATE, next_job);
+    split_log_job(TAG, next_job->pool_slot, next_job->jobid);
 }
 
 // Construct bm_job directly from SV2 fields (no coinbase/merkle computation needed).
@@ -301,7 +304,9 @@ static void generate_work_sv2(GlobalState *GLOBAL_STATE, sv2_job_t *sv2_job, dou
         return;
     }
 
+    next_job->pool_slot = split_pool_slot(GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback);
     ASIC_send_work(GLOBAL_STATE, next_job);
+    split_log_job(TAG, next_job->pool_slot, next_job->jobid);
 }
 
 // Extended channel work generation: compute coinbase hash from prefix+extranonce+suffix,
@@ -407,5 +412,7 @@ static void generate_work_sv2_ext(GlobalState *GLOBAL_STATE, sv2_ext_job_t *ext_
         return;
     }
 
+    next_job->pool_slot = split_pool_slot(GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback);
     ASIC_send_work(GLOBAL_STATE, next_job);
+    split_log_job(TAG, next_job->pool_slot, next_job->jobid);
 }

@@ -133,6 +133,7 @@ else()
         "${WEB_SRC_DIR}/angular.json"
         "${WEB_SRC_DIR}/tsconfig.json"
         "${WEB_SRC_DIR}/tsconfig.app.json"
+        "${CMAKE_SOURCE_DIR}/version.txt"
     )
 
     # Use a stamp file to track when the build was last done

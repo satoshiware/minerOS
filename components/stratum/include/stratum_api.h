@@ -76,6 +76,10 @@ typedef struct
 typedef struct {
     int64_t timestamp_us;
     bool tracking;
+    bool is_share;
+    uint8_t chip;
+    uint8_t pool_slot;
+    char job_id[32];
 } RequestTiming;
 
 esp_transport_handle_t STRATUM_V1_transport_init(tls_mode tls, char * cert);
@@ -109,5 +113,9 @@ int STRATUM_V1_submit_share(esp_transport_handle_t transport, int send_uid, cons
                             const uint32_t version_bits, uint64_t *out_sent_time_us);
 
 float STRATUM_V1_get_response_time_ms(int request_id, int64_t receive_time_us);
+
+void STRATUM_V1_note_share(int request_id, uint8_t chip, uint8_t pool_slot, const char *job_id);
+
+bool STRATUM_V1_take_share(int request_id, uint8_t *chip, uint8_t *pool_slot, char *job_id, size_t job_id_len);
 
 #endif // STRATUM_API_H

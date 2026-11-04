@@ -50,6 +50,37 @@ float STRATUM_V1_get_response_time_ms(int request_id, int64_t receive_time_us)
     return response_time;
 }
 
+void STRATUM_V1_note_share(int request_id, uint8_t chip, uint8_t pool_slot, const char *job_id)
+{
+    RequestTiming *timing = get_request_timing(request_id);
+    if (!timing) {
+        return;
+    }
+    timing->is_share = true;
+    timing->chip = chip;
+    timing->pool_slot = pool_slot;
+    snprintf(timing->job_id, sizeof(timing->job_id), "%s", job_id ? job_id : "");
+}
+
+bool STRATUM_V1_take_share(int request_id, uint8_t *chip, uint8_t *pool_slot, char *job_id, size_t job_id_len)
+{
+    RequestTiming *timing = get_request_timing(request_id);
+    if (!timing || !timing->is_share) {
+        return false;
+    }
+    if (chip) {
+        *chip = timing->chip;
+    }
+    if (pool_slot) {
+        *pool_slot = timing->pool_slot;
+    }
+    if (job_id && job_id_len > 0) {
+        snprintf(job_id, job_id_len, "%s", timing->job_id);
+    }
+    timing->is_share = false;
+    return true;
+}
+
 esp_transport_handle_t STRATUM_V1_transport_init(tls_mode tls, char * cert)
 {
     esp_transport_handle_t transport;
@@ -114,6 +145,8 @@ void STRATUM_V1_initialize_buffer()
     for (int i = 0; i < MAX_REQUEST_IDS; i++) {
         request_timings[i].timestamp_us = 0;
         request_timings[i].tracking = false;
+        request_timings[i].is_share = false;
+        request_timings[i].job_id[0] = '\0';
     }
 }
 
@@ -631,6 +664,7 @@ static void stamp_tx(int request_id, uint64_t timestamp_us)
         if (timing) {
             timing->timestamp_us = timestamp_us;
             timing->tracking = true;
+            timing->is_share = false;
         }
     }
 }

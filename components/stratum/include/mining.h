@@ -21,6 +21,7 @@ typedef struct
     double pool_diff;
     char *jobid;
     char *extranonce2;
+    uint8_t pool_slot;
 } bm_job;
 
 void free_bm_job(bm_job *job);
