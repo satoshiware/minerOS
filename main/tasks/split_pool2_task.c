@@ -23,6 +23,7 @@ static esp_transport_handle_t s_transport = NULL;
 static mining_notify *s_notify = NULL;
 static char s_extranonce[128];
 static int s_extranonce2_len = 0;
+static bool s_have_extranonce = false;
 static double s_difficulty = 0;
 static char s_user[128];
 static int s_uid = 1;
@@ -82,6 +83,7 @@ static void drop_session_locked(GlobalState *gs)
     s_difficulty = 0;
     s_extranonce[0] = '\0';
     s_extranonce2_len = 0;
+    s_have_extranonce = false;
     s_user[0] = '\0';
     if (s_notify) {
         STRATUM_V1_free_mining_notify(s_notify);
@@ -121,7 +123,7 @@ static bool pool2_listen_enabled(GlobalState *gs)
 bool split_pool2_has_job(void)
 {
     pthread_mutex_lock(&s_lock);
-    bool ready = s_connected && s_notify != NULL && s_extranonce[0] != '\0' && s_difficulty > 0;
+    bool ready = s_connected && s_notify != NULL && s_have_extranonce && s_difficulty > 0;
     pthread_mutex_unlock(&s_lock);
     return ready;
 }
@@ -129,7 +131,7 @@ bool split_pool2_has_job(void)
 bool split_pool2_copy_job(mining_notify **notify, char *extranonce, size_t extranonce_len, int *extranonce2_len, double *difficulty)
 {
     pthread_mutex_lock(&s_lock);
-    if (!s_connected || s_notify == NULL || s_extranonce[0] == '\0' || s_difficulty <= 0 ||
+    if (!s_connected || s_notify == NULL || !s_have_extranonce || s_difficulty <= 0 ||
         s_notify->job_id == NULL || s_notify->coinbase_1 == NULL || s_notify->coinbase_2 == NULL ||
         s_notify->prev_block_hash == NULL) {
         pthread_mutex_unlock(&s_lock);
@@ -242,12 +244,15 @@ static void handle_line(GlobalState *gs, esp_transport_handle_t transport, const
         pthread_mutex_unlock(&s_lock);
         ESP_LOGI(TAG, "Pool 2 difficulty %.2f", msg.new_difficulty);
     } else if (msg.method == MINING_SET_EXTRANONCE || msg.method == STRATUM_RESULT_SUBSCRIBE) {
+        pthread_mutex_lock(&s_lock);
         if (msg.extranonce_str) {
-            pthread_mutex_lock(&s_lock);
             snprintf(s_extranonce, sizeof(s_extranonce), "%s", msg.extranonce_str);
-            s_extranonce2_len = msg.extranonce_2_len;
-            pthread_mutex_unlock(&s_lock);
+        } else {
+            s_extranonce[0] = '\0';
         }
+        s_extranonce2_len = msg.extranonce_2_len;
+        s_have_extranonce = true;
+        pthread_mutex_unlock(&s_lock);
     } else if (msg.method == MINING_PING) {
         STRATUM_V1_pong(transport, msg.message_id);
     } else if (msg.method == STRATUM_RESULT) {
@@ -363,6 +368,7 @@ void split_pool2_task(void *pvParameters)
         s_uid = 1;
         s_difficulty = 0;
         s_extranonce[0] = '\0';
+        s_have_extranonce = false;
         clear_pending();
         snprintf(s_user, sizeof(s_user), "%s", user);
         int uid = s_uid++;

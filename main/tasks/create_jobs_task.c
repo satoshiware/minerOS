@@ -195,7 +195,7 @@ void create_jobs_task(void *pvParameters)
 static bool generate_work(GlobalState *GLOBAL_STATE, mining_notify *notification, uint64_t extranonce_2, double difficulty,
                           const char *extranonce_str, int extranonce_2_len, uint32_t version_mask, uint8_t pool_slot)
 {
-    if (notification == NULL || extranonce_str == NULL || extranonce_str[0] == '\0') {
+    if (notification == NULL || extranonce_str == NULL) {
         return false;
     }
     if (extranonce_2_len > MAX_EXTRANONCE2_LEN) {
