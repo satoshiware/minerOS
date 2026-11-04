@@ -73,6 +73,7 @@ export class PoolComponent implements OnInit {
       .subscribe(info => {
         this.asicModel = info.ASICModel || '';
         this.form = this.fb.group({
+          splitMode: [!!info.splitMode],
           stratumURL: [info.stratumURL, [
             Validators.required,
             Validators.pattern(/^(?!.*stratum\+tcp:\/\/)(?!.*:[1-9]\d{0,4}$).*$/),

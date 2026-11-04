@@ -18,6 +18,13 @@ static inline void split_log_job(const char *tag, uint8_t pool_slot, const char 
              (long long)esp_timer_get_time(), (unsigned)pool_slot, job_id ? job_id : "");
 }
 
+/* A template arrived on a slot. This is not a job sent to the chain. */
+static inline void split_log_pooljob(const char *tag, uint8_t pool_slot, const char *job_id)
+{
+    ESP_LOGI(tag, "split pooljob time=%lld pool=%u job=%s",
+             (long long)esp_timer_get_time(), (unsigned)pool_slot, job_id ? job_id : "");
+}
+
 static inline void split_log_share(const char *tag, uint8_t chip, uint8_t pool_slot, const char *job_id, bool accepted)
 {
     ESP_LOGI(tag, "split share time=%lld chip=%u pool=%u job=%s result=%s",

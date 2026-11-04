@@ -96,6 +96,8 @@ typedef struct
     char * pool_cert;
     char * fallback_pool_cert;
     bool is_using_fallback;
+    bool split_pool2_connected;
+    char split_pool2_job_id[32];
     uint16_t fallback_pool_protocol;
     char pool_connection_info[64];
     bool overheat_mode;

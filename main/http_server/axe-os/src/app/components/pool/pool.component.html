@@ -6,9 +6,14 @@
                 <strong>Warning:</strong> You are using the default factory Bitcoin address. Please change the <strong>User</strong> field to your own Bitcoin address to receive mining rewards.
             </div>
         </div>
+        <div class="field-checkbox mb-4">
+            <p-checkbox formControlName="splitMode" [binary]="true" inputId="splitMode"></p-checkbox>
+            <label for="splitMode" class="ml-2">Split</label>
+            <small class="block text-500 mt-1">Off is Fallback. On opens Pool 2 and forces every job onto Pool 1.</small>
+        </div>
         <ng-container *ngFor="let pool of pools">
             <h2 *ngIf="pool === 'stratum'">Pool Configuration</h2>
-            <h2 *ngIf="pool === 'fallbackStratum'" class="mt-5">Fallback Pool Configuration</h2>
+            <h2 *ngIf="pool === 'fallbackStratum'" class="mt-5">{{ form.get('splitMode')?.value ? 'Pool 2' : 'Fallback Pool Configuration' }}</h2>
 
             <div class="card">
                 <div class="field grid p-fluid">

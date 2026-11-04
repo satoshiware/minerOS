@@ -148,6 +148,12 @@ static void system_api_add_config(cJSON *root, GlobalState *g) {
     // Pool Configuration
     cJSON_AddStringToObject(root, "poolConnectionInfo", g->SYSTEM_MODULE.pool_connection_info);
     cJSON_AddNumberToObject(root, "isUsingFallbackStratum", g->SYSTEM_MODULE.is_using_fallback ? 1 : 0);
+    bool split_mode = nvs_config_get_bool(NVS_CONFIG_SPLIT_MODE);
+    cJSON_AddBoolToObject(root, "splitMode", split_mode);
+    cJSON_AddBoolToObject(root, "pool2Connected", g->SYSTEM_MODULE.split_pool2_connected);
+    cJSON_AddNumberToObject(root, "splitForcePool", split_mode ? 1 : 0);
+    cJSON_AddNumberToObject(root, "pool1JobPercent", split_mode ? 100 : 0);
+    cJSON_AddNumberToObject(root, "pool2JobPercent", 0);
     
     char *s_url = nvs_config_get_string(NVS_CONFIG_STRATUM_URL);
     cJSON_AddStringToObject(root, "stratumURL", s_url ? s_url : "");

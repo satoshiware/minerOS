@@ -410,6 +410,10 @@
                             />
                         </div>
 
+                        <p *ngIf="info.splitMode" class="text-sm mt-0 mb-3">
+                            Jobs are forced to Pool 1. Pool 2 is {{ info.pool2Connected ? 'connected' : 'down' }} and has {{ info.pool2JobPercent }}% of jobs.
+                        </p>
+
                         <div class="flex flex-nowrap">
                             <div class="col-fixed-width text-500">
                                 <span>URL</span>

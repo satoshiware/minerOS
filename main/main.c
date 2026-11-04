@@ -15,6 +15,7 @@
 #include "http_server.h"
 #include "serial.h"
 #include "protocol_coordinator.h"
+#include "split_pool2_task.h"
 #include "i2c_bitaxe.h"
 #include "adc.h"
 #include "nvs_config.h"
@@ -196,6 +197,9 @@ void app_main(void)
     protocol_coordinator_init(&GLOBAL_STATE);
     if (xTaskCreateWithCaps(protocol_coordinator_task, "protocol coord", 3072, (void *) &GLOBAL_STATE, 5, NULL, MALLOC_CAP_SPIRAM) != pdPASS) {
         ESP_LOGE(TAG, "Error creating protocol coordinator task");
+    }
+    if (xTaskCreate(split_pool2_task, "split pool2", 8192, (void *) &GLOBAL_STATE, 5, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Error creating split pool2 task");
     }
 
     if (GLOBAL_STATE.SELF_TEST_MODULE.is_active) {

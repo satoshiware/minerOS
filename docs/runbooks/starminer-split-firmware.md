@@ -1,6 +1,6 @@
 # Starminer split firmware
 
-Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 2 passed on 2026-11-04. The miner at `http://192.168.38.62` is running `split-p2` (GammaV2, one BM1370). The files in `build/` are that image. `V1.0.1-rc.5` is not on disk.
+Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 2 passed on 2026-11-04. The miner at `http://192.168.38.62` is still running `split-p2` until `split-p3` is installed. `build/` is the uninstalled `split-p3` image. The `split-p2` rollback copies are `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk.
 
 This runbook is the whole handoff. A new session should follow it and should not reconstruct the design from chat history.
 
@@ -18,14 +18,14 @@ This runbook adds split mining to StarMiner. The bench proves it on the Starmine
 - The Pool 1 user on the miner for the Phase 1 run is `slims.bhora.axeminer`. The fallback user `slims.bhora.bitaxe1` is stored and was not used.
 - Suggested difficulty stays at `1000`, the miner default. Vardiff is enabled toward the translator, so the translator and the pool set the working difficulty.
 - The Phase 0 baseline reading is Pool 1 alone. The fallback form stayed filled during Phase 1 and received no work.
-- Pool 2’s address for the split is not set. It is written on the sheet before any phase that opens Pool 2. Pool 3 is written before Phase 5.
+- Pool 2 for the split is `mining.btcofaz.com:3336`, user `sc2.baveet.miner_split`, Stratum V1. The password is typed on the miner and is not written here. Pool 3 is written before Phase 5.
 - Frequency and voltage stay at this miner’s defaults: 525 MHz and 1150 mV.
 - The stratum password is typed on the miner only. Do not copy it into git, this file, or the record sheet.
 - Split is even across filled, live forms among Pool 1, Pool 2, and Pool 3. There is no percent field.
 - The **Split** switch on the AxeOS **Pool** page is what makes those forms active. Off, stock fallback behavior stays in force.
 - Tests use the path already on the miner: reverse proxy, then translator, then pool. Do not add another hop. Do not change frequency, voltage, or suggested difficulty to make a phase pass.
 - The device board string before the update was `601a-1`. The board table maps `601a-1` to the same GammaV2 config as `601a`: one BM1370, 12 V. After `split-p1` the API reports board `601a`.
-- The miner is running `split-p2`. `V1.0.1-rc.5` is not on disk, and it is not the Git tag `v1.1.5` (`04e8c22`). An update from this computer cannot put `V1.0.1-rc.5` back. The booted image is `build/esp-miner.bin`, SHA-256 `e8ccc0bdf15cd7ad307e3bb3dd5978b091cdfe78a94ab85a97ff02d47235ef6d`, and `build/www.bin`, SHA-256 `9b460f8bc189538f6853118a2e0a70b2b826da79fd6ca62359b3c79ab2d29763`. The earlier `split-p1` hashes were `c2d755419bea5bb8dcef738ff4ff44f3d41791d1d6e2511fadba6fd086c1d204` and `e08059018f5fcaeb4fd2c33efc4392548ee71c9396c639479a344bb5efc1491d`. Those bytes are no longer the files in `build/`.
+- The miner is still running `split-p2` until `split-p3` is installed. `V1.0.1-rc.5` is not on disk, and it is not the Git tag `v1.1.5` (`04e8c22`). An update from this computer cannot put `V1.0.1-rc.5` back. The `split-p2` copies are `../phase2/esp-miner.bin`, SHA-256 `e8ccc0bdf15cd7ad307e3bb3dd5978b091cdfe78a94ab85a97ff02d47235ef6d`, and `../phase2/www.bin`, SHA-256 `9b460f8bc189538f6853118a2e0a70b2b826da79fd6ca62359b3c79ab2d29763`. `build/` is now `split-p3`. The earlier `split-p1` hashes were `c2d755419bea5bb8dcef738ff4ff44f3d41791d1d6e2511fadba6fd086c1d204` and `e08059018f5fcaeb4fd2c33efc4392548ee71c9396c639479a344bb5efc1491d`.
 
 Read these existing files before editing the fork. The slice timer is `main/tasks/create_jobs_task.c`. Pool values are stored from `main/nvs_config.c`. The stock connection is `main/tasks/protocol_coordinator.c`, with `main/tasks/stratum_v1_task.c` and `main/tasks/stratum_v2_task.c`. The page to change is `main/http_server/axe-os`. When Split is on, a share has to be submitted on the session that owned the slice. When Split is off, the stock submit path stays.
 
@@ -67,7 +67,7 @@ The page keeps the two forms it has now, and this work adds a third form for Poo
 | Pool 1 host | `mining.btcofaz.com` |
 | Pool 1 port | `3336` |
 | Pool 1 user | `slims.bhora.bitaxe` |
-| Pool 2 | Not set. The address is written on the record sheet before any phase that opens Pool 2. |
+| Pool 2 | `mining.btcofaz.com:3336`, user `sc2.baveet.miner_split`, Stratum V1. Password is typed on the miner. |
 | Pool 3 | A third host, port, and user written on the record sheet before Phase 5 |
 | Password | The stratum password for that pool. It is typed on the miner and is not copied into this repo. |
 
@@ -194,7 +194,7 @@ curl -X POST -H "Content-Type: application/octet-stream" --data-binary "@build/w
 4. Wait until the miner reboots. Upload `build/www.bin` in the same way when the web version must match. A web upload done after boot does not change the AxeOS version line until the next restart.
 5. Open AxeOS again. Wi-Fi, pools, frequency, and voltage stay as they were. Open **Pool**.
 
-If a test image does not bring AxeOS back, stop. Do not install a second custom image. If AxeOS is up, reinstall the `split-p2` files in `build/`. This test has no USB step. `V1.0.1-rc.5` cannot be restored from this computer.
+If a test image does not bring AxeOS back, stop. Do not install a second custom image. If AxeOS is up, reinstall the `split-p2` copies at `../phase2/esp-miner.bin` and `../phase2/www.bin`. `build/` is the image being tested and is overwritten by the next build. This test has no USB step. `V1.0.1-rc.5` cannot be restored from this computer.
 
 ## Record sheet
 
@@ -237,7 +237,7 @@ Fallback host: mining.btcofaz.com
 Fallback port: 3336
 Fallback user: slims.bhora.bitaxe1
 Fallback used in Phase 1: no
-Pool 2 host / port / user for the split: not set yet
+Pool 2 host / port / user for the split: mining.btcofaz.com:3336 / sc2.baveet.miner_split / Stratum V1
 Pool 3 host / port / user (before Phase 5):
 Node page for Pool 1: Pool 1 worker on mining.btcofaz.com
 Node page for Pool 2:
@@ -314,7 +314,7 @@ The image is this StarMiner tree plus a version string. Pool behavior is still o
 - [x] Rejected shares were 6 of 1739 submitted, under 2%.
 - [x] A restart booted `split-p1` again without another update. The device reset-reason text is still “Software reset due to exception/panic”, the same text it reported before this install, and it resumed hashing.
 
-Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `build/esp-miner.bin` and `build/www.bin`. `V1.0.1-rc.5` is not on disk.
+Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk.
 
 ---
 
@@ -344,7 +344,7 @@ Mining stays on Pool 1. The log records every job sent to the ASIC and every sha
 - [x] After an hour up, the dashboard is 1.072 TH/s. The node’s longer window for `axeminer` is 0.983 TH/s. Both are inside 0.903 to 1.221 TH/s. The node’s short window, 0.600 TH/s, is the share estimate and sits below the chip counter.
 - [x] Pool 1 is still `slims.bhora.axeminer`. The fallback is still stored and unused. Frequency 525 MHz, voltage 1150 mV.
 
-Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `build/esp-miner.bin` and `build/www.bin`. `V1.0.1-rc.5` is not on disk. A missing job id blocks every later phase.
+Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk. A missing job id blocks every later phase.
 
 ---
 
@@ -355,8 +355,8 @@ The miner opens Pool 2 and keeps a job from it. Every job sent to the chain is s
 ### Pre-checks
 
 - [x] Phase 2 post-tests passed.
-- [ ] Image version `split-p3`.
-- [ ] Pool 2’s host, port, and user are on the sheet. They are typed as given. Pool 1 stays `mining.btcofaz.com:3336` / `slims.bhora.bitaxe`.
+- [x] Image version `split-p3`. Built, not installed. `build/esp-miner.bin` SHA-256 `c098387f749fcd64b4a7cc8552257e2bf243e48e48d67a66bebc1d57123eafce`. `build/www.bin` SHA-256 `00f0cb6abd470a7130df824a2a23f2d9a4d78a8ddac7e28c1608ea47104dd368`.
+- [x] Pool 2’s host, port, and user are on the sheet. They are typed as given. Pool 1 stays `mining.btcofaz.com:3336` / `slims.bhora.axeminer`.
 - [ ] Both node pages are open.
 - [ ] Pool 3 is empty.
 - [ ] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not.
@@ -377,7 +377,7 @@ The miner opens Pool 2 and keeps a job from it. Every job sent to the chain is s
 - [ ] The job log shows Pool 2 jobs arriving, and every ASIC job line says Pool 1.
 - [ ] Switching **Pool mode** to **Fallback** and restarting returns stock behavior: Pool 2 is idle unless Pool 1 fails.
 
-Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `build/esp-miner.bin` and `build/www.bin`. `V1.0.1-rc.5` is not on disk. A Pool 2 share in the forced-Pool-1 window means the override failed.
+Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `../phase2/esp-miner.bin` and `../phase2/www.bin`. `build/` is the `split-p3` image under test. `V1.0.1-rc.5` is not on disk. A Pool 2 share in the forced-Pool-1 window means the override failed.
 
 ---
 
@@ -413,7 +413,7 @@ Filling Pool 1 and Pool 2, setting **Pool mode** to **Split**, and restarting sh
 - [ ] Restart again without editing pools. The same split returns after warmup.
 - [ ] **Fallback** mode, after a restart, hashes only the primary pool.
 
-Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `build/esp-miner.bin` and `build/www.bin`. `V1.0.1-rc.5` is not on disk.
+Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk.
 
 ---
 
@@ -480,7 +480,7 @@ The page does not grow. This phase checks drop and return on the Phase 5 code, t
 - [ ] **Pool mode** **Fallback** still hashes only the primary after a restart.
 - [ ] The **Pool** page still has the stock fields plus **Pool mode**.
 
-Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `build/esp-miner.bin` and `build/www.bin`. `V1.0.1-rc.5` is not on disk.
+Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk.
 
 ---
 
