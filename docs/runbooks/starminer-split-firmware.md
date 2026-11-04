@@ -1,6 +1,6 @@
 # Starminer split firmware
 
-Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 2 passed on 2026-11-04. The miner at `http://192.168.38.62` is still running `split-p2` until `split-p3` is installed. `build/` is the uninstalled `split-p3` image. The `split-p2` rollback copies are `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk.
+Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 3 passed on 2026-11-04. The miner at `http://192.168.38.62` is running `split-p3` with Pool mode set back to Fallback. `build/` is that image. The `split-p2` rollback copies are `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk.
 
 This runbook is the whole handoff. A new session should follow it and should not reconstruct the design from chat history.
 
@@ -25,7 +25,7 @@ This runbook adds split mining to StarMiner. The bench proves it on the Starmine
 - The **Split** switch on the AxeOS **Pool** page is what makes those forms active. Off, stock fallback behavior stays in force.
 - Tests use the path already on the miner: reverse proxy, then translator, then pool. Do not add another hop. Do not change frequency, voltage, or suggested difficulty to make a phase pass.
 - The device board string before the update was `601a-1`. The board table maps `601a-1` to the same GammaV2 config as `601a`: one BM1370, 12 V. After `split-p1` the API reports board `601a`.
-- The miner is still running `split-p2` until `split-p3` is installed. `V1.0.1-rc.5` is not on disk, and it is not the Git tag `v1.1.5` (`04e8c22`). An update from this computer cannot put `V1.0.1-rc.5` back. The `split-p2` copies are `../phase2/esp-miner.bin`, SHA-256 `e8ccc0bdf15cd7ad307e3bb3dd5978b091cdfe78a94ab85a97ff02d47235ef6d`, and `../phase2/www.bin`, SHA-256 `9b460f8bc189538f6853118a2e0a70b2b826da79fd6ca62359b3c79ab2d29763`. `build/` is now `split-p3`. The earlier `split-p1` hashes were `c2d755419bea5bb8dcef738ff4ff44f3d41791d1d6e2511fadba6fd086c1d204` and `e08059018f5fcaeb4fd2c33efc4392548ee71c9396c639479a344bb5efc1491d`.
+- The miner is running `split-p3` with Pool mode Fallback. `V1.0.1-rc.5` is not on disk, and it is not the Git tag `v1.1.5` (`04e8c22`). An update from this computer cannot put `V1.0.1-rc.5` back. `build/esp-miner.bin` SHA-256 `c098387f749fcd64b4a7cc8552257e2bf243e48e48d67a66bebc1d57123eafce`. `build/www.bin` SHA-256 `00f0cb6abd470a7130df824a2a23f2d9a4d78a8ddac7e28c1608ea47104dd368`. The `split-p2` copies are `../phase2/esp-miner.bin`, SHA-256 `e8ccc0bdf15cd7ad307e3bb3dd5978b091cdfe78a94ab85a97ff02d47235ef6d`, and `../phase2/www.bin`, SHA-256 `9b460f8bc189538f6853118a2e0a70b2b826da79fd6ca62359b3c79ab2d29763`. The earlier `split-p1` hashes were `c2d755419bea5bb8dcef738ff4ff44f3d41791d1d6e2511fadba6fd086c1d204` and `e08059018f5fcaeb4fd2c33efc4392548ee71c9396c639479a344bb5efc1491d`.
 
 Read these existing files before editing the fork. The slice timer is `main/tasks/create_jobs_task.c`. Pool values are stored from `main/nvs_config.c`. The stock connection is `main/tasks/protocol_coordinator.c`, with `main/tasks/stratum_v1_task.c` and `main/tasks/stratum_v2_task.c`. The page to change is `main/http_server/axe-os`. When Split is on, a share has to be submitted on the session that owned the slice. When Split is off, the stock submit path stays.
 
@@ -205,8 +205,8 @@ Board version: 601a-1
 ASIC: BM1370
 Chip count: 1
 Class hashrate: a single-chip Gamma 601 or 602 is roughly 1.0 to 1.8 TH/s.
-Firmware: split-p2
-AxeOS: split-p2
+Firmware: split-p3
+AxeOS: split-p3
 ESP-IDF: v5.5.2
 Previous firmware: V1.0.1-rc.5, not on disk
 Rollback firmware: build/esp-miner.bin
@@ -235,8 +235,9 @@ Pool 1 port: 3336
 Pool 1 user: slims.bhora.axeminer
 Fallback host: mining.btcofaz.com
 Fallback port: 3336
-Fallback user: slims.bhora.bitaxe1
+Fallback user: sc2.baveet.miner_split
 Fallback used in Phase 1: no
+Pool mode after Phase 3: Fallback. Pool 2 is stored and idle.
 Pool 2 host / port / user for the split: mining.btcofaz.com:3336 / sc2.baveet.miner_split / Stratum V1
 Pool 3 host / port / user (before Phase 5):
 Node page for Pool 1: Pool 1 worker on mining.btcofaz.com
@@ -251,7 +252,7 @@ Do not upload `phase0/esp-miner-v2.15.4.bin` or any other bitaxeorg file to the 
 | 0 | 2026-11-02 | V1.0.1-rc.5 | readings recorded | Node 1.062 TH/s over 30 min, 1.077 TH/s over a day. AxeOS about 1.06 TH/s at 10 min and 1 hour. Suggested difficulty 1000, vardiff on the translator. Path is reverse proxy, translator, pool. Nothing uploaded. |
 | 1 | 2026-11-03 | split-p1 | passed | Node 1.040 TH/s over 30 min. Dashboard about 1.06 / 1.07 / 1.07 TH/s at 1 / 10 / 60 min. 1733 shares accepted, 6 rejected. One BM1370. Fallback stored and unused. Stock Pool fields present. Restart came back as split-p1. Frequency 525 MHz, voltage 1150 mV. |
 | 2 | 2026-11-04 | split-p2 | passed | Logs at `/#/logs`. 2763 job lines, all pool 1. 189 share lines, chip 0, pool 1, accepted, same job id. Dashboard 1.072 TH/s over the hour. Node longer window 0.983 TH/s, inside 0.903 to 1.221. Pool unchanged. 601 accepted, 1 rejected. |
-| 3 | | | | |
+| 3 | 2026-11-04 | split-p3 | passed | Split window: Pool 2 connected on the miner, templates arriving, 0 shares. Site showed miner_split offline. axeminer 1.047 / 0.942 / 1.091 TH/s, all inside 0.903 to 1.221. Chip hour 1.073 TH/s. 408 accepted, 1 rejected. Fallback restart: split off, Pool 2 idle, only slims.bhora.axeminer authorized, 202 jobs and 74 shares all pool 1. |
 | 4 | | | | |
 | 5 | | | | |
 | 6 | | | | |
@@ -357,9 +358,9 @@ The miner opens Pool 2 and keeps a job from it. Every job sent to the chain is s
 - [x] Phase 2 post-tests passed.
 - [x] Image version `split-p3`. Built, not installed. `build/esp-miner.bin` SHA-256 `c098387f749fcd64b4a7cc8552257e2bf243e48e48d67a66bebc1d57123eafce`. `build/www.bin` SHA-256 `00f0cb6abd470a7130df824a2a23f2d9a4d78a8ddac7e28c1608ea47104dd368`.
 - [x] Pool 2’s host, port, and user are on the sheet. They are typed as given. Pool 1 stays `mining.btcofaz.com:3336` / `slims.bhora.axeminer`.
-- [ ] Both node pages are open.
-- [ ] Pool 3 is empty.
-- [ ] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not.
+- [x] Both node pages are open.
+- [x] Pool 3 is empty.
+- [x] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not.
 
 ### Steps
 
@@ -370,12 +371,12 @@ The miner opens Pool 2 and keeps a job from it. Every job sent to the chain is s
 
 ### Post-tests
 
-- [ ] Version is `split-p3`.
-- [ ] Dashboard shows Pool 2 connected and 0% of jobs.
-- [ ] For 30 minutes, Pool 1 stays inside the one-pool band.
-- [ ] Pool 2’s node user shows a session and zero accepted shares for that window.
-- [ ] The job log shows Pool 2 jobs arriving, and every ASIC job line says Pool 1.
-- [ ] Switching **Pool mode** to **Fallback** and restarting returns stock behavior: Pool 2 is idle unless Pool 1 fails.
+- [x] Version is `split-p3`.
+- [x] Dashboard shows Pool 2 connected and 0% of jobs.
+- [x] For 30 minutes, Pool 1 stays inside the one-pool band.
+- [x] Pool 2’s node user shows a session and zero accepted shares for that window. The site lists `miner_split` offline because it accepted none.
+- [x] The job log shows Pool 2 jobs arriving, and every ASIC job line says Pool 1.
+- [x] Switching **Pool mode** to **Fallback** and restarting returns stock behavior: Pool 2 is idle unless Pool 1 fails. New boot had no Pool 2 lines. Only `slims.bhora.axeminer` authorized.
 
 Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `../phase2/esp-miner.bin` and `../phase2/www.bin`. `build/` is the `split-p3` image under test. `V1.0.1-rc.5` is not on disk. A Pool 2 share in the forced-Pool-1 window means the override failed.
 
@@ -387,7 +388,7 @@ Filling Pool 1 and Pool 2, setting **Pool mode** to **Split**, and restarting sh
 
 ### Pre-checks
 
-- [ ] Phase 3 post-tests passed.
+- [x] Phase 3 post-tests passed.
 - [ ] Image version `split-p4` has no force-to-Pool-1 override.
 - [ ] Chip count on the sheet is still the one you will test against.
 - [ ] Both node pages are open.
