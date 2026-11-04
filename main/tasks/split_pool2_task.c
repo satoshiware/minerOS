@@ -40,9 +40,36 @@ typedef struct {
 
 static pending_share_t s_pending[PENDING_SHARES];
 
+typedef struct {
+    bool used;
+    uint8_t chip;
+    char job_id[32];
+    char extranonce2[18];
+    uint32_t ntime;
+    uint32_t nonce;
+    uint32_t version_bits;
+} queued_share_t;
+
+static queued_share_t s_queue[PENDING_SHARES];
+
 static void clear_pending(void)
 {
     memset(s_pending, 0, sizeof(s_pending));
+    memset(s_queue, 0, sizeof(s_queue));
+}
+
+static void fail_outstanding_locked(void)
+{
+    for (int i = 0; i < PENDING_SHARES; i++) {
+        if (s_pending[i].used) {
+            split_log_share(TAG, s_pending[i].chip, 2, s_pending[i].job_id, false);
+            s_pending[i].used = false;
+        }
+        if (s_queue[i].used) {
+            split_log_share(TAG, s_queue[i].chip, 2, s_queue[i].job_id, false);
+            s_queue[i].used = false;
+        }
+    }
 }
 
 static void remember_share(int id, uint8_t chip, const char *job_id)
@@ -79,6 +106,7 @@ static bool take_pending(int id, uint8_t *chip, char *job_id, size_t job_id_len)
 
 static void drop_session_locked(GlobalState *gs)
 {
+    fail_outstanding_locked();
     s_connected = false;
     s_difficulty = 0;
     s_extranonce[0] = '\0';
@@ -175,41 +203,75 @@ bool split_pool2_copy_job(mining_notify **notify, char *extranonce, size_t extra
 bool split_pool2_submit_share(GlobalState *gs, const char *job_id, const char *extranonce2,
                               uint32_t ntime, uint32_t nonce, uint32_t version_bits, uint8_t chip)
 {
-    esp_transport_handle_t transport = NULL;
-    char user[128];
-    int id = 0;
-
+    (void)gs;
     pthread_mutex_lock(&s_lock);
     if (s_transport == NULL || s_user[0] == '\0') {
         pthread_mutex_unlock(&s_lock);
         split_log_share(TAG, chip, 2, job_id, false);
         return false;
     }
-    transport = s_transport;
-    snprintf(user, sizeof(user), "%s", s_user);
-    id = s_uid++;
-    remember_share(id, chip, job_id);
-    pthread_mutex_unlock(&s_lock);
-
-    char submit_msg[1024];
-    snprintf(submit_msg, sizeof(submit_msg),
-             "{\"id\":%d,\"method\":\"mining.submit\",\"params\":[\"%s\",\"%s\",\"%s\",\"%08lx\",\"%08lx\",\"%08lx\"]}\n",
-             id, user, job_id ? job_id : "", extranonce2 ? extranonce2 : "",
-             (unsigned long)ntime, (unsigned long)nonce, (unsigned long)version_bits);
-
-    int ret = esp_transport_write(transport, submit_msg, strlen(submit_msg), 5000);
-    if (ret < 0) {
-        uint8_t logged_chip = chip;
-        char logged_job[32];
-        pthread_mutex_lock(&s_lock);
-        take_pending(id, &logged_chip, logged_job, sizeof(logged_job));
+    queued_share_t *slot = NULL;
+    for (int i = 0; i < PENDING_SHARES; i++) {
+        if (!s_queue[i].used) {
+            slot = &s_queue[i];
+            break;
+        }
+    }
+    if (slot == NULL) {
         pthread_mutex_unlock(&s_lock);
-        split_log_share(TAG, logged_chip, 2, logged_job[0] ? logged_job : job_id, false);
-        (void)gs;
+        split_log_share(TAG, chip, 2, job_id, false);
         return false;
     }
-    (void)gs;
+    slot->used = true;
+    slot->chip = chip;
+    slot->ntime = ntime;
+    slot->nonce = nonce;
+    slot->version_bits = version_bits;
+    snprintf(slot->job_id, sizeof(slot->job_id), "%s", job_id ? job_id : "");
+    snprintf(slot->extranonce2, sizeof(slot->extranonce2), "%s", extranonce2 ? extranonce2 : "");
+    pthread_mutex_unlock(&s_lock);
     return true;
+}
+
+/* Called on the Pool 2 task so a share write cannot race the socket read. */
+static void drain_shares(esp_transport_handle_t transport)
+{
+    queued_share_t batch[PENDING_SHARES];
+    int ids[PENDING_SHARES];
+    int count = 0;
+    char user[128];
+
+    pthread_mutex_lock(&s_lock);
+    snprintf(user, sizeof(user), "%s", s_user);
+    for (int i = 0; i < PENDING_SHARES; i++) {
+        if (!s_queue[i].used) {
+            continue;
+        }
+        batch[count] = s_queue[i];
+        s_queue[i].used = false;
+        ids[count] = s_uid++;
+        remember_share(ids[count], batch[count].chip, batch[count].job_id);
+        count++;
+    }
+    pthread_mutex_unlock(&s_lock);
+
+    for (int i = 0; i < count; i++) {
+        char submit_msg[1024];
+        snprintf(submit_msg, sizeof(submit_msg),
+                 "{\"id\":%d,\"method\":\"mining.submit\",\"params\":[\"%s\",\"%s\",\"%s\",\"%08lx\",\"%08lx\",\"%08lx\"]}\n",
+                 ids[i], user, batch[i].job_id, batch[i].extranonce2,
+                 (unsigned long)batch[i].ntime, (unsigned long)batch[i].nonce, (unsigned long)batch[i].version_bits);
+        ESP_LOGI(TAG, "tx pool=2 user=%s job=%s", user, batch[i].job_id);
+        int ret = esp_transport_write(transport, submit_msg, strlen(submit_msg), 5000);
+        if (ret < 0) {
+            uint8_t chip = batch[i].chip;
+            char job_id[32];
+            pthread_mutex_lock(&s_lock);
+            take_pending(ids[i], &chip, job_id, sizeof(job_id));
+            pthread_mutex_unlock(&s_lock);
+            split_log_share(TAG, chip, 2, job_id[0] ? job_id : batch[i].job_id, false);
+        }
+    }
 }
 
 static void handle_line(GlobalState *gs, esp_transport_handle_t transport, const char *line)
@@ -280,13 +342,15 @@ static void read_session(GlobalState *gs, esp_transport_handle_t transport)
     s_acc[0] = '\0';
 
     while (pool2_listen_enabled(gs)) {
+        drain_shares(transport);
         if (acc_len >= sizeof(s_acc) - 1) {
             acc_len = 0;
             s_acc[0] = '\0';
         }
 
-        int n = esp_transport_read(transport, s_acc + acc_len, sizeof(s_acc) - 1 - acc_len, 5000);
+        int n = esp_transport_read(transport, s_acc + acc_len, sizeof(s_acc) - 1 - acc_len, 1000);
         if (n < 0) {
+            ESP_LOGW(TAG, "Pool 2 read failed: %d", n);
             break;
         }
         if (n == 0) {
