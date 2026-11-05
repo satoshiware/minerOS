@@ -7,7 +7,7 @@ import { SystemApiService } from 'src/app/services/system.service';
 import { LiveDataService } from 'src/app/services/live-data.service';
 import { first } from 'rxjs';
 
-type PoolType = 'stratum' | 'fallbackStratum';
+type PoolType = 'stratum' | 'fallbackStratum' | 'pool3Stratum';
 
 interface ITlsOption {
   value: number;
@@ -35,9 +35,9 @@ export class PoolComponent implements OnInit {
 
   public readonly DEFAULT_BITCOIN_ADDRESS = 'bc1qnp980s5fpp8l94p5cvttmtdqy8rvrq74qly2yrfmzkdsntqzlc5qkc4rkq';
 
-  public pools: PoolType[] = ['stratum', 'fallbackStratum'];
-  public showPassword = { 'stratum': false, 'fallbackStratum': false };
-  public showAdvancedOptions = { 'stratum': false, 'fallbackStratum': false };
+  public pools: PoolType[] = ['stratum', 'fallbackStratum', 'pool3Stratum'];
+  public showPassword = { 'stratum': false, 'fallbackStratum': false, 'pool3Stratum': false };
+  public showAdvancedOptions = { 'stratum': false, 'fallbackStratum': false, 'pool3Stratum': false };
 
   public tlsOptions: ITlsOption[] = [
     { value: 0, label: 'No TLS' },
@@ -112,7 +112,26 @@ export class PoolComponent implements OnInit {
           fallbackStratumProtocol: [info.fallbackStratumProtocol || 'SV1'],
           fallbackStratumV2AuthorityPubkey: [info.fallbackStratumV2AuthorityPubkey || '', [this.base58Validator()]],
           stratumV2ChannelType: [info.stratumV2ChannelType || 'standard'],
-          fallbackStratumV2ChannelType: [info.fallbackStratumV2ChannelType || 'standard']
+          fallbackStratumV2ChannelType: [info.fallbackStratumV2ChannelType || 'standard'],
+          pool3StratumURL: [info.pool3StratumURL || '', [
+            Validators.pattern(/^(?!.*stratum\+tcp:\/\/)(?!.*:[1-9]\d{0,4}$).*$/),
+          ]],
+          pool3StratumPort: [info.pool3StratumPort ?? 3336, [
+            Validators.required,
+            Validators.pattern(/^[^:]*$/),
+            Validators.min(0),
+            Validators.max(65535)
+          ]],
+          pool3StratumUser: [info.pool3StratumUser || ''],
+          pool3StratumPassword: ['*****'],
+          pool3StratumProtocol: [info.pool3StratumProtocol || 'SV1'],
+          pool3StratumV2AuthorityPubkey: [info.pool3StratumV2AuthorityPubkey || '', [this.base58Validator()]],
+          pool3StratumV2ChannelType: [info.pool3StratumV2ChannelType || 'extended'],
+          pool3StratumExtranonceSubscribe: [info.pool3StratumExtranonceSubscribe == true],
+          pool3StratumSuggestedDifficulty: [info.pool3StratumSuggestedDifficulty ?? 1000, [Validators.required]],
+          pool3StratumTLS: [info.pool3StratumTLS || 0],
+          pool3StratumCert: [info.pool3StratumCert || ''],
+          pool3StratumDecodeCoinbase: [info.pool3StratumDecodeCoinbase !== false],
         });
 
         const setupTlsValidation = (tlsControlName: string, certControlName: string) => {
@@ -133,10 +152,12 @@ export class PoolComponent implements OnInit {
         // Setup tls validation
         setupTlsValidation('stratumTLS', 'stratumCert');
         setupTlsValidation('fallbackStratumTLS', 'fallbackStratumCert');
+        setupTlsValidation('pool3StratumTLS', 'pool3StratumCert');
 
         // Trigger initial validation
         this.form.get('stratumTLS')?.updateValueAndValidity();
         this.form.get('fallbackStratumTLS')?.updateValueAndValidity();
+        this.form.get('pool3StratumTLS')?.updateValueAndValidity();
       });
   }
 
@@ -148,6 +169,9 @@ export class PoolComponent implements OnInit {
     }
     if (form.fallbackStratumPassword === '*****') {
       delete form.fallbackStratumPassword;
+    }
+    if (form.pool3StratumPassword === '*****') {
+      delete form.pool3StratumPassword;
     }
 
     this.systemService.updateSystem(this.uri, form)
@@ -305,7 +329,7 @@ export class PoolComponent implements OnInit {
   }
 
   isPoolV2Enabled(pool: PoolType): boolean {
-    return pool === 'stratum' ? this.isStratumV2Enabled() : this.isFallbackStratumV2Enabled();
+    return this.form?.get(pool + 'Protocol')?.value === 'SV2';
   }
 
   isStandardChannelDisabled(): boolean {
@@ -314,7 +338,6 @@ export class PoolComponent implements OnInit {
 
   isPoolV2Extended(pool: PoolType): boolean {
     if (!this.isPoolV2Enabled(pool)) return false;
-    const key = pool === 'stratum' ? 'stratumV2ChannelType' : 'fallbackStratumV2ChannelType';
-    return this.form?.get(key)?.value === 'extended';
+    return this.form?.get(pool + 'V2ChannelType')?.value === 'extended';
   }
 }

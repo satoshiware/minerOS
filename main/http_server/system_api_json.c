@@ -218,6 +218,30 @@ static void system_api_add_config(cJSON *root, GlobalState *g) {
     cJSON_AddStringToObject(root, "fallbackStratumProtocol", fallback_proto ? fallback_proto : STRATUM_V1);
     free(fallback_proto);
 
+    char *p3_url = nvs_config_get_string(NVS_CONFIG_POOL3_STRATUM_URL);
+    cJSON_AddStringToObject(root, "pool3StratumURL", p3_url ? p3_url : "");
+    free(p3_url);
+    cJSON_AddNumberToObject(root, "pool3StratumPort", nvs_config_get_u16(NVS_CONFIG_POOL3_STRATUM_PORT));
+    char *p3_user = nvs_config_get_string(NVS_CONFIG_POOL3_STRATUM_USER);
+    cJSON_AddStringToObject(root, "pool3StratumUser", p3_user ? p3_user : "");
+    free(p3_user);
+    cJSON_AddNumberToObject(root, "pool3StratumSuggestedDifficulty", nvs_config_get_u16(NVS_CONFIG_POOL3_STRATUM_DIFFICULTY));
+    cJSON_AddBoolToObject(root, "pool3StratumExtranonceSubscribe", nvs_config_get_bool(NVS_CONFIG_POOL3_STRATUM_EXTRANONCE_SUBSCRIBE));
+    cJSON_AddNumberToObject(root, "pool3StratumTLS", nvs_config_get_u16(NVS_CONFIG_POOL3_STRATUM_TLS));
+    char *p3_cert = nvs_config_get_string(NVS_CONFIG_POOL3_STRATUM_CERT);
+    cJSON_AddStringToObject(root, "pool3StratumCert", p3_cert ? p3_cert : "");
+    free(p3_cert);
+    cJSON_AddBoolToObject(root, "pool3StratumDecodeCoinbase", nvs_config_get_bool(NVS_CONFIG_POOL3_STRATUM_DECODE_COINBASE_TX));
+    char *p3_proto = nvs_config_get_string(NVS_CONFIG_POOL3_STRATUM_PROTOCOL);
+    cJSON_AddStringToObject(root, "pool3StratumProtocol", p3_proto ? p3_proto : STRATUM_V1);
+    free(p3_proto);
+    char *p3_pub = nvs_config_get_string(NVS_CONFIG_POOL3_SV2_AUTHORITY_PUBKEY);
+    cJSON_AddStringToObject(root, "pool3StratumV2AuthorityPubkey", p3_pub ? p3_pub : "");
+    free(p3_pub);
+    char *p3_chan = nvs_config_get_string(NVS_CONFIG_POOL3_SV2_CHANNEL_TYPE);
+    cJSON_AddStringToObject(root, "pool3StratumV2ChannelType", p3_chan ? p3_chan : SV2_CHANNEL_TYPE_EXTENDED);
+    free(p3_chan);
+
     // User Preferences
     cJSON_AddNumberToObject(root, "overclockEnabled", nvs_config_get_bool(NVS_CONFIG_OVERCLOCK_ENABLED) ? 1 : 0);
     char *disp_name = nvs_config_get_string(NVS_CONFIG_DISPLAY);
