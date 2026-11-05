@@ -315,6 +315,8 @@ static void handle_line(GlobalState *gs, esp_transport_handle_t transport, const
         s_extranonce2_len = msg.extranonce_2_len;
         s_have_extranonce = true;
         pthread_mutex_unlock(&s_lock);
+    } else if (msg.method == STRATUM_RESULT_CONFIGURE) {
+        ESP_LOGI(TAG, "Pool 2 version mask %08lx", (unsigned long)msg.version_mask);
     } else if (msg.method == MINING_PING) {
         STRATUM_V1_pong(transport, msg.message_id);
     } else if (msg.method == STRATUM_RESULT) {
@@ -439,16 +441,16 @@ void split_pool2_task(void *pvParameters)
         pthread_mutex_unlock(&s_lock);
 
         const char *asic_name = gs->DEVICE_CONFIG.family.asic.name;
+        uint32_t version_mask = 0;
+        STRATUM_V1_configure_version_rolling(transport, uid, &version_mask);
+        pthread_mutex_lock(&s_lock);
+        uid = s_uid++;
+        pthread_mutex_unlock(&s_lock);
         STRATUM_V1_subscribe(transport, uid, asic_name ? asic_name : "bitaxe");
         pthread_mutex_lock(&s_lock);
         uid = s_uid++;
         pthread_mutex_unlock(&s_lock);
         STRATUM_V1_authorize(transport, uid, user, pass ? pass : "");
-        pthread_mutex_lock(&s_lock);
-        uid = s_uid++;
-        pthread_mutex_unlock(&s_lock);
-        uint32_t version_mask = 0;
-        STRATUM_V1_configure_version_rolling(transport, uid, &version_mask);
         if (diff != 0) {
             pthread_mutex_lock(&s_lock);
             uid = s_uid++;
