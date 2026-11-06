@@ -1,6 +1,6 @@
 # Starminer split firmware
 
-Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 4 passed on 2026-11-05. Phase 5 is in progress and is not passed. The miner at `http://192.168.38.62` stays on `split-p4` until the `split-p5` OTA. Pool mode is Split. Pool 1 is `slims.bhora.axeminer`, Pool 2 is `sc2.baveet.miner_split`, and Pool 3 is `frontier.bhora.miner_split3` on `mining.btcofaz.com:3336`. The rollback copies are `../phase4/esp-miner.bin` and `../phase4/www.bin`. Do not replace those with the `split-p5` build. `build/` is overwritten by the next build. The `split-p3` copies are `../phase3/`. The `split-p2` copies are `../phase2/`. `V1.0.1-rc.5` is not on disk.
+Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 4 passed on 2026-11-05. Phase 5 passed on 2026-11-06. Phase 6 is in progress and is not passed. The miner at `http://192.168.38.62` stays on `split-p5` until the `split-p6` OTA. Pool mode is Split. Pool 1 is `slims.bhora.axeminer`, Pool 2 is `sc2.baveet.miner_split`, and Pool 3 is `frontier.bhora.miner_split3` on `mining.btcofaz.com:3336`. The rollback copies are `../phase5/esp-miner.bin` and `../phase5/www.bin`. Do not replace those with the `split-p6` build. `build/` is overwritten by the next build. The `split-p4` copies stay in `../phase4/`. The `split-p3` copies are `../phase3/`. The `split-p2` copies are `../phase2/`. `V1.0.1-rc.5` is not on disk.
 
 This runbook is the whole handoff. A new session should follow it and should not reconstruct the design from chat history.
 
@@ -25,7 +25,7 @@ This runbook adds split mining to StarMiner. The bench proves it on the Starmine
 - The **Split** switch on the AxeOS **Pool** page is what makes those forms active. Off, stock fallback behavior stays in force.
 - Tests use the path already on the miner: reverse proxy, then translator, then pool. Do not add another hop. Do not change frequency, voltage, or suggested difficulty to make a phase pass.
 - The device board string before the update was `601a-1`. The board table maps `601a-1` to the same GammaV2 config as `601a`: one BM1370, 12 V. After `split-p1` the API reports board `601a`.
-- The miner is running `split-p4` with Pool mode Split. `V1.0.1-rc.5` is not on disk, and it is not the Git tag `v1.1.5` (`04e8c22`). An update from this computer cannot put `V1.0.1-rc.5` back. The passing `split-p4` copies are `../phase4/esp-miner.bin` SHA-256 `a1db76c32b518c6af7407c921c6dc465a8492598a6c06674f3cbfca0d2ad33a9` and `../phase4/www.bin` SHA-256 `3f8c40085a3a28bdeab5a372c4d3acc1eca4fe5364a133f622d3a907343a6973`. `build/` matches those hashes until the next compile. The `split-p3` copies are `../phase3/esp-miner.bin` SHA-256 `c098387f749fcd64b4a7cc8552257e2bf243e48e48d67a66bebc1d57123eafce` and `../phase3/www.bin` SHA-256 `00f0cb6abd470a7130df824a2a23f2d9a4d78a8ddac7e28c1608ea47104dd368`. The `split-p2` copies are `../phase2/esp-miner.bin` SHA-256 `e8ccc0bdf15cd7ad307e3bb3dd5978b091cdfe78a94ab85a97ff02d47235ef6d` and `../phase2/www.bin` SHA-256 `9b460f8bc189538f6853118a2e0a70b2b826da79fd6ca62359b3c79ab2d29763`.
+- The miner is running `split-p5` with Pool mode Split. `V1.0.1-rc.5` is not on disk, and it is not the Git tag `v1.1.5` (`04e8c22`). An update from this computer cannot put `V1.0.1-rc.5` back. The passing `split-p5` copies are `../phase5/esp-miner.bin` SHA-256 `a007410651bac3ab737e09b1fc44924be8c639c154208253a6fd65af5fd3af63` and `../phase5/www.bin` SHA-256 `f27b0c7a5f19e3c8e76832bc276b938330fccdf0961aa24a6fe29df104955922`. The `split-p4` copies are `../phase4/esp-miner.bin` SHA-256 `a1db76c32b518c6af7407c921c6dc465a8492598a6c06674f3cbfca0d2ad33a9` and `../phase4/www.bin` SHA-256 `3f8c40085a3a28bdeab5a372c4d3acc1eca4fe5364a133f622d3a907343a6973`. The `split-p3` copies are `../phase3/esp-miner.bin` SHA-256 `c098387f749fcd64b4a7cc8552257e2bf243e48e48d67a66bebc1d57123eafce` and `../phase3/www.bin` SHA-256 `00f0cb6abd470a7130df824a2a23f2d9a4d78a8ddac7e28c1608ea47104dd368`. The `split-p2` copies are `../phase2/esp-miner.bin` SHA-256 `e8ccc0bdf15cd7ad307e3bb3dd5978b091cdfe78a94ab85a97ff02d47235ef6d` and `../phase2/www.bin` SHA-256 `9b460f8bc189538f6853118a2e0a70b2b826da79fd6ca62359b3c79ab2d29763`.
 
 Read these existing files before editing the fork. The slice timer is `main/tasks/create_jobs_task.c`. Pool values are stored from `main/nvs_config.c`. The stock connection is `main/tasks/protocol_coordinator.c`, with `main/tasks/stratum_v1_task.c` and `main/tasks/stratum_v2_task.c`. The page to change is `main/http_server/axe-os`. When Split is on, a share has to be submitted on the session that owned the slice. When Split is off, the stock submit path stays.
 
@@ -205,14 +205,14 @@ Board version: 601a-1
 ASIC: BM1370
 Chip count: 1
 Class hashrate: a single-chip Gamma 601 or 602 is roughly 1.0 to 1.8 TH/s.
-Firmware: split-p4
-AxeOS: split-p4
+Firmware: split-p5
+AxeOS: split-p5
 ESP-IDF: v5.5.2
 Previous firmware: V1.0.1-rc.5, not on disk
-Rollback firmware: build/esp-miner.bin
-Rollback firmware SHA-256: c2d755419bea5bb8dcef738ff4ff44f3d41791d1d6e2511fadba6fd086c1d204
-Rollback web file: build/www.bin
-Rollback web SHA-256: e08059018f5fcaeb4fd2c33efc4392548ee71c9396c639479a344bb5efc1491d
+Rollback firmware: ../phase5/esp-miner.bin
+Rollback firmware SHA-256: a007410651bac3ab737e09b1fc44924be8c639c154208253a6fd65af5fd3af63
+Rollback web file: ../phase5/www.bin
+Rollback web SHA-256: f27b0c7a5f19e3c8e76832bc276b938330fccdf0961aa24a6fe29df104955922
 MAC: 3C:DC:75:FD:C8:54
 Wi-Fi SSID: mullets
 Wi-Fi RSSI: -40 dBm
@@ -237,7 +237,7 @@ Fallback host: mining.btcofaz.com
 Fallback port: 3336
 Fallback user: sc2.baveet.miner_split
 Fallback used in Phase 1: no
-Pool mode after Phase 4: Split. Pool 1 and Pool 2 were live. Pool 3 is filled for Phase 5 and stays unused until split-p5 boots.
+Pool mode after Phase 5: Split. All three pools are live.
 Pool 2 host / port / user for the split: mining.btcofaz.com:3336 / sc2.baveet.miner_split / Stratum V1
 Pool 3 host / port / user (before Phase 5): mining.btcofaz.com:3336 / frontier.bhora.miner_split3 / Stratum V1
 Node page for Pool 1: Pool 1 worker on mining.btcofaz.com
@@ -254,7 +254,7 @@ Do not upload `phase0/esp-miner-v2.15.4.bin` or any other bitaxeorg file to the 
 | 2 | 2026-11-04 | split-p2 | passed | Logs at `/#/logs`. 2763 job lines, all pool 1. 189 share lines, chip 0, pool 1, accepted, same job id. Dashboard 1.072 TH/s over the hour. Node longer window 0.983 TH/s, inside 0.903 to 1.221. Pool unchanged. 601 accepted, 1 rejected. |
 | 3 | 2026-11-04 | split-p3 | passed | Split window: Pool 2 connected on the miner, templates arriving, 0 shares. Site showed miner_split offline. axeminer 1.047 / 0.942 / 1.091 TH/s, all inside 0.903 to 1.221. Chip hour 1.073 TH/s. 408 accepted, 1 rejected. Fallback restart: split off, Pool 2 idle, only slims.bhora.axeminer authorized, 202 jobs and 74 shares all pool 1. |
 | 4 | 2026-11-05 | split-p4 | passed | Day averages about 0.55 TH/s on each node, inside 0.425 to 0.637. Restored Split boot: dashboard Pool 1 50% / 545 Gh/s, Pool 2 49% / 535 Gh/s, Pool 3 empty, chip about 1.09 TH/s. That boot logged 1247 jobs on each pool, 147 accepted shares on Pool 1, 150 on Pool 2, 1 rejected. Restart without edits returned 259/258 jobs and a 61/60 last minute, with 54 and 14 accepted shares and 0 rejected. Pool 2 mask on that boot was 1fffe000. Fallback restart: split off, 746 jobs and 89 shares all pool 1, no Pool 2 lines. Frequency 525 MHz, voltage 1150 mV. One BM1370. Passing copies are `../phase4/`. |
-| 5 | | | | |
+| 5 | 2026-11-06 | split-p5 | passed | Three-pool boot held 33/33/33 for about 22 hours. Chip hour 1.071 TH/s, about 0.357 TH/s each, inside 0.266 to 0.446. 37990 accepted, 296 rejected (0.77%). Log samples in that boot were 33/33/33, 34/33/34, and 33/33/33, with shares on all three users. Cleared Pool 3: 949/949 jobs, last minute 60/60, no Pool 3 shares, dashboard 50/49. Restored Pool 3: 659 jobs on each pool, last minute 40/40/40, dashboard 33/33/33, Pool 3 connected as frontier.bhora.miner_split3. Frequency 525 MHz, voltage 1150 mV. One BM1370. Passing copies are `../phase5/`. |
 | 6 | | | | |
 
 ---
@@ -425,9 +425,9 @@ Filling all three slots in **Split** mode gives each pool one third of the jobs.
 ### Pre-checks
 
 - [x] Phase 4 post-tests passed.
-- [ ] The sheet has a Pool 3 host, port, user, and node page. Host, port, and user are filled. The node page is still blank.
+- [x] The sheet has a Pool 3 host, port, user, and node page. Host, port, and user are filled. All three node pages showed the miner online.
 - [x] Image version `split-p5`.
-- [ ] All three node pages are open.
+- [x] All three node pages are open.
 - [x] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not. The rollback is `../phase4/`.
 
 ### Steps
@@ -439,14 +439,14 @@ Filling all three slots in **Split** mode gives each pool one third of the jobs.
 
 ### Post-tests
 
-- [ ] Version is `split-p5`.
-- [ ] Dashboard shows about one third of jobs on each pool.
-- [ ] The job test passes at the start, middle, and end of the hour, and all three node users accept shares in those samples.
-- [ ] Each node hashrate stays inside 25% to 42% of the Phase 0 baseline.
-- [ ] Rejected shares stay under 2% on each pool.
-- [ ] On a multi-chip board, shares from one slice all name that slice’s pool.
-- [ ] Clear Pool 3, restart, and wait through warmup. The map returns to the Phase 4 two-pool split, and Pool 3 takes no new shares.
-- [ ] Fill Pool 3 again, restart, and confirm the three-way split returns.
+- [x] Version is `split-p5`.
+- [x] Dashboard shows about one third of jobs on each pool.
+- [x] The job test passes at the start, middle, and end of the hour, and all three node users accept shares in those samples.
+- [x] Each node hashrate stays inside 25% to 42% of the Phase 0 baseline. Chip hour 1.071 TH/s split evenly is about 0.357 TH/s each.
+- [x] Rejected shares stay under 2% on each pool.
+- [x] On a multi-chip board, shares from one slice all name that slice’s pool. This bench is one BM1370.
+- [x] Clear Pool 3, restart, and wait through warmup. The map returns to the Phase 4 two-pool split, and Pool 3 takes no new shares.
+- [x] Fill Pool 3 again, restart, and confirm the three-way split returns.
 
 Fail path: stop if AxeOS does not come back. `V1.0.1-rc.5` is not on disk. If AxeOS is up, `split-p4` can be installed again while this phase is fixed. Leave Pool 3 empty on `split-p4`.
 
@@ -458,11 +458,11 @@ The page does not grow. This phase checks drop and return on the Phase 5 code, t
 
 ### Pre-checks
 
-- [ ] Phase 5 post-tests passed.
+- [x] Phase 5 post-tests passed.
 - [ ] You can make Pool 2 fail login without changing Pool 1 or Pool 3. A user name that cannot authorize is enough.
-- [ ] You can restore the real Pool 2 user afterward.
-- [ ] Image version `split-p6`. If `split-p5` already releases a dead pool, the update only changes the version string.
-- [ ] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not.
+- [ ] You can restore the real Pool 2 user afterward. The real user is `sc2.baveet.miner_split`.
+- [x] Image version `split-p6`. `split-p5` already releases a pool that has no job, so this update only changes the version string. The miner stays on `split-p5` until the OTA.
+- [x] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not. The rollback is `../phase5/`.
 
 ### Steps
 
@@ -481,7 +481,7 @@ The page does not grow. This phase checks drop and return on the Phase 5 code, t
 - [ ] **Pool mode** **Fallback** still hashes only the primary after a restart.
 - [ ] The **Pool** page still has the stock fields plus **Pool mode**.
 
-Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p2` from `../phase2/esp-miner.bin` and `../phase2/www.bin`. `V1.0.1-rc.5` is not on disk.
+Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p5` from `../phase5/esp-miner.bin` and `../phase5/www.bin`. `V1.0.1-rc.5` is not on disk.
 
 ---
 
