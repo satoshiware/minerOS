@@ -16,7 +16,7 @@
             <h2 *ngIf="pool === 'stratum'">Pool Configuration</h2>
             <h2 *ngIf="pool === 'fallbackStratum'" class="mt-5">{{ form.get('splitMode')?.value ? 'Pool 2' : 'Fallback Pool Configuration' }}</h2>
             <h2 *ngIf="pool === 'pool3Stratum'" class="mt-5">Pool 3</h2>
-            <small *ngIf="pool === 'pool3Stratum'" class="block text-500 mb-3">Leave the user empty and this pool stays unused. Split does not mine it until the next phase.</small>
+            <small *ngIf="pool === 'pool3Stratum'" class="block text-500 mb-3">Leave the user empty and this pool stays unused. With Split on, a filled Pool 3 takes an even share of the jobs.</small>
 
             <div class="card">
                 <div class="field grid p-fluid">

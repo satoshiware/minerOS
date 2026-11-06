@@ -16,6 +16,7 @@
 #include "serial.h"
 #include "protocol_coordinator.h"
 #include "split_pool2_task.h"
+#include "split_pool3_task.h"
 #include "i2c_bitaxe.h"
 #include "adc.h"
 #include "nvs_config.h"
@@ -200,6 +201,9 @@ void app_main(void)
     }
     if (xTaskCreate(split_pool2_task, "split pool2", 8192, (void *) &GLOBAL_STATE, 5, NULL) != pdPASS) {
         ESP_LOGE(TAG, "Error creating split pool2 task");
+    }
+    if (xTaskCreate(split_pool3_task, "split pool3", 8192, (void *) &GLOBAL_STATE, 5, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Error creating split pool3 task");
     }
 
     if (GLOBAL_STATE.SELF_TEST_MODULE.is_active) {

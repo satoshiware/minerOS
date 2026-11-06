@@ -151,18 +151,23 @@ static void system_api_add_config(cJSON *root, GlobalState *g) {
     bool split_mode = nvs_config_get_bool(NVS_CONFIG_SPLIT_MODE);
     cJSON_AddBoolToObject(root, "splitMode", split_mode);
     cJSON_AddBoolToObject(root, "pool2Connected", g->SYSTEM_MODULE.split_pool2_connected);
+    cJSON_AddBoolToObject(root, "pool3Connected", g->SYSTEM_MODULE.split_pool3_connected);
     cJSON_AddNumberToObject(root, "splitForcePool", 0);
     uint32_t sent1 = g->SYSTEM_MODULE.split_sent_pool1;
     uint32_t sent2 = g->SYSTEM_MODULE.split_sent_pool2;
-    uint32_t sent = sent1 + sent2;
+    uint32_t sent3 = g->SYSTEM_MODULE.split_sent_pool3;
+    uint32_t sent = sent1 + sent2 + sent3;
     int pool1_percent = 0;
     int pool2_percent = 0;
+    int pool3_percent = 0;
     if (split_mode && sent > 0) {
         pool1_percent = (int)((sent1 * 100u) / sent);
         pool2_percent = (int)((sent2 * 100u) / sent);
+        pool3_percent = (int)((sent3 * 100u) / sent);
     }
     cJSON_AddNumberToObject(root, "pool1JobPercent", pool1_percent);
     cJSON_AddNumberToObject(root, "pool2JobPercent", pool2_percent);
+    cJSON_AddNumberToObject(root, "pool3JobPercent", pool3_percent);
     
     char *s_url = nvs_config_get_string(NVS_CONFIG_STRATUM_URL);
     cJSON_AddStringToObject(root, "stratumURL", s_url ? s_url : "");

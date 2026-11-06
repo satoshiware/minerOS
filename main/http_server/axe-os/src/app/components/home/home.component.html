@@ -416,7 +416,12 @@
                             <ng-template #pool2Down>
                                 <div>Pool 2 · {{ info.fallbackStratumUser }} · down</div>
                             </ng-template>
-                            <div *ngIf="info.pool3StratumUser; else pool3Empty">Pool 3 · {{ info.pool3StratumUser }} · unused</div>
+                            <div *ngIf="info.pool3StratumUser; else pool3Empty">
+                                <div *ngIf="info.pool3Connected; else pool3Down">Pool 3 · {{ info.pool3StratumUser }} · {{ info.pool3JobPercent }}% of jobs · {{ ((info.hashRate || 0) * (info.pool3JobPercent || 0) / 100) | hashSuffix }}</div>
+                                <ng-template #pool3Down>
+                                    <div>Pool 3 · {{ info.pool3StratumUser }} · down</div>
+                                </ng-template>
+                            </div>
                             <ng-template #pool3Empty>
                                 <div>Pool 3 · empty</div>
                             </ng-template>

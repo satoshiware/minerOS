@@ -18,6 +18,7 @@
 #include "utils.h"
 #include "split_log.h"
 #include "split_pool2_task.h"
+#include "split_pool3_task.h"
 #include "nvs_config.h"
 
 static const char *TAG = "create_jobs_task";
@@ -245,17 +246,23 @@ static void send_v1_slice(GlobalState *GLOBAL_STATE, mining_notify *notification
 {
     bool split = nvs_config_get_bool(NVS_CONFIG_SPLIT_MODE) && !GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback;
     bool pool2 = split && split_pool2_has_job();
+    bool pool3 = split && split_pool3_has_job();
     static bool prev_split = false;
     static bool prev_pool2 = false;
+    static bool prev_pool3 = false;
     static uint32_t sent1 = 0;
     static uint32_t sent2 = 0;
+    static uint32_t sent3 = 0;
     static uint64_t extranonce_2_pool2 = 0;
+    static uint64_t extranonce_2_pool3 = 0;
 
-    if (split != prev_split || pool2 != prev_pool2) {
+    if (split != prev_split || pool2 != prev_pool2 || pool3 != prev_pool3) {
         sent1 = 0;
         sent2 = 0;
+        sent3 = 0;
         prev_split = split;
         prev_pool2 = pool2;
+        prev_pool3 = pool3;
     }
 
     if (!split) {
@@ -266,8 +273,33 @@ static void send_v1_slice(GlobalState *GLOBAL_STATE, mining_notify *notification
         return;
     }
 
-    /* Tied counts take Pool 1, so two live pools alternate 1, 2, 1, 2. */
-    uint8_t slot = (pool2 && sent2 < sent1) ? 2 : 1;
+    /* Lowest slot wins a tie, so live pools rotate 1, 2, 3. */
+    uint8_t slot = 1;
+    uint32_t least = sent1;
+    if (pool2 && sent2 < least) {
+        slot = 2;
+        least = sent2;
+    }
+    if (pool3 && sent3 < least) {
+        slot = 3;
+    }
+    if (slot == 3) {
+        mining_notify *pool3_notify = NULL;
+        int pool3_en2_len = 0;
+        double pool3_diff = 0;
+        char pool3_extranonce_buf[128];
+        if (!split_pool3_copy_job(&pool3_notify, pool3_extranonce_buf, sizeof(pool3_extranonce_buf), &pool3_en2_len, &pool3_diff)) {
+            slot = (pool2 && sent2 <= sent1) ? 2 : 1;
+        } else if (generate_work(GLOBAL_STATE, pool3_notify, extranonce_2_pool3, pool3_diff,
+                                 pool3_extranonce_buf, pool3_en2_len, GLOBAL_STATE->version_mask, 3)) {
+            STRATUM_V1_free_mining_notify(pool3_notify);
+            extranonce_2_pool3++;
+            sent3++;
+        } else {
+            STRATUM_V1_free_mining_notify(pool3_notify);
+            slot = (pool2 && sent2 <= sent1) ? 2 : 1;
+        }
+    }
     if (slot == 2) {
         mining_notify *pool2_notify = NULL;
         int pool2_en2_len = 0;
@@ -296,6 +328,7 @@ static void send_v1_slice(GlobalState *GLOBAL_STATE, mining_notify *notification
 
     GLOBAL_STATE->SYSTEM_MODULE.split_sent_pool1 = sent1;
     GLOBAL_STATE->SYSTEM_MODULE.split_sent_pool2 = sent2;
+    GLOBAL_STATE->SYSTEM_MODULE.split_sent_pool3 = sent3;
 }
 
 // Construct bm_job directly from SV2 fields (no coinbase/merkle computation needed).

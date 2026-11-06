@@ -39,6 +39,7 @@ SRCS
     "./tasks/scoreboard.c"
     "./tasks/hashrate_monitor_task.c"
     "./tasks/split_pool2_task.c"
+    "./tasks/split_pool3_task.c"
     "./tasks/fan_controller_task.c"
     "./thermal/EMC2101.c"
     "./thermal/EMC2103.c"

@@ -16,6 +16,7 @@
 #include "self_test.h"
 #include "split_log.h"
 #include "split_pool2_task.h"
+#include "split_pool3_task.h"
 
 static const char *TAG = "asic_result";
 
@@ -94,6 +95,9 @@ void ASIC_result_task(void *pvParameters)
                     ESP_LOGW(TAG, "Failed to submit SV2 share (ret=%d, errno=%d: %s)",
                              ret, errno, strerror(errno));
                 }
+            } else if (active_job->pool_slot == 3 && !GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback) {
+                split_pool3_submit_share(GLOBAL_STATE, active_job->jobid, active_job->extranonce2,
+                                         active_job->ntime, asic_result->nonce, version_bits, asic_result->asic_nr);
             } else if (active_job->pool_slot == 2 && !GLOBAL_STATE->SYSTEM_MODULE.is_using_fallback) {
                 split_pool2_submit_share(GLOBAL_STATE, active_job->jobid, active_job->extranonce2,
                                          active_job->ntime, asic_result->nonce, version_bits, asic_result->asic_nr);

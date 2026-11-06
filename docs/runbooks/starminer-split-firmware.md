@@ -1,6 +1,6 @@
 # Starminer split firmware
 
-Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 4 passed on 2026-11-05. The miner at `http://192.168.38.62` is running `split-p4` with Pool mode Split. Pool 1 is `slims.bhora.axeminer` and Pool 2 is `sc2.baveet.miner_split`. Pool 3 is empty. The passing copies are `../phase4/esp-miner.bin` and `../phase4/www.bin`. `build/` is that same image and the next build overwrites it. The `split-p3` copies are `../phase3/`. The `split-p2` copies are `../phase2/`. `V1.0.1-rc.5` is not on disk.
+Status: This plan is `docs/runbooks/starminer-split-firmware.md` on branch `split` of [baveet256/StarMiner](https://github.com/baveet256/StarMiner). `origin` is that fork. `split` started from `3bf9c3e` (8 Jul 2026). Phase 4 passed on 2026-11-05. Phase 5 is in progress and is not passed. The miner at `http://192.168.38.62` stays on `split-p4` until the `split-p5` OTA. Pool mode is Split. Pool 1 is `slims.bhora.axeminer`, Pool 2 is `sc2.baveet.miner_split`, and Pool 3 is `frontier.bhora.miner_split3` on `mining.btcofaz.com:3336`. The rollback copies are `../phase4/esp-miner.bin` and `../phase4/www.bin`. Do not replace those with the `split-p5` build. `build/` is overwritten by the next build. The `split-p3` copies are `../phase3/`. The `split-p2` copies are `../phase2/`. `V1.0.1-rc.5` is not on disk.
 
 This runbook is the whole handoff. A new session should follow it and should not reconstruct the design from chat history.
 
@@ -18,7 +18,7 @@ This runbook adds split mining to StarMiner. The bench proves it on the Starmine
 - The Pool 1 user on the miner for the Phase 1 run is `slims.bhora.axeminer`. The fallback user `slims.bhora.bitaxe1` is stored and was not used.
 - Suggested difficulty stays at `1000`, the miner default. Vardiff is enabled toward the translator, so the translator and the pool set the working difficulty.
 - The Phase 0 baseline reading is Pool 1 alone. The fallback form stayed filled during Phase 1 and received no work.
-- Pool 2 for the split is `mining.btcofaz.com:3336`, user `sc2.baveet.miner_split`, Stratum V1. The password is typed on the miner and is not written here. Pool 3 is written before Phase 5.
+- Pool 2 for the split is `mining.btcofaz.com:3336`, user `sc2.baveet.miner_split`, Stratum V1. Pool 3 is `mining.btcofaz.com:3336`, user `frontier.bhora.miner_split3`, Stratum V1. The passwords are typed on the miner and are not written here.
 - Frequency and voltage stay at this miner’s defaults: 525 MHz and 1150 mV.
 - The stratum password is typed on the miner only. Do not copy it into git, this file, or the record sheet.
 - Split is even across filled, live forms among Pool 1, Pool 2, and Pool 3. There is no percent field.
@@ -237,9 +237,9 @@ Fallback host: mining.btcofaz.com
 Fallback port: 3336
 Fallback user: sc2.baveet.miner_split
 Fallback used in Phase 1: no
-Pool mode after Phase 4: Split. Pool 1 and Pool 2 are live. Pool 3 is empty.
+Pool mode after Phase 4: Split. Pool 1 and Pool 2 were live. Pool 3 is filled for Phase 5 and stays unused until split-p5 boots.
 Pool 2 host / port / user for the split: mining.btcofaz.com:3336 / sc2.baveet.miner_split / Stratum V1
-Pool 3 host / port / user (before Phase 5):
+Pool 3 host / port / user (before Phase 5): mining.btcofaz.com:3336 / frontier.bhora.miner_split3 / Stratum V1
 Node page for Pool 1: Pool 1 worker on mining.btcofaz.com
 Node page for Pool 2:
 Node page for Pool 3:
@@ -425,10 +425,10 @@ Filling all three slots in **Split** mode gives each pool one third of the jobs.
 ### Pre-checks
 
 - [x] Phase 4 post-tests passed.
-- [ ] The sheet has a Pool 3 host, port, user, and node page.
-- [ ] Image version `split-p5`.
+- [ ] The sheet has a Pool 3 host, port, user, and node page. Host, port, and user are filled. The node page is still blank.
+- [x] Image version `split-p5`.
 - [ ] All three node pages are open.
-- [ ] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not.
+- [x] The last StarMiner image that booted is on disk. `V1.0.1-rc.5` is not. The rollback is `../phase4/`.
 
 ### Steps
 
