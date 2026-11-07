@@ -1,31 +1,23 @@
-[![](https://dcbadge.vercel.app/api/server/3E8ca2dkcC)](https://discord.gg/osmu)
-
-![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/awxhw/StarMiner/total)
-![GitHub commit activity](https://img.shields.io/github/commit-activity/t/awxhw/StarMiner)
-![GitHub contributors](https://img.shields.io/github/contributors/awxhw/StarMiner)
-![Alt](https://repobeats.axiom.co/api/embed/70889479b1e002c18a184b05bc5cbf2ed3718579.svg "Repobeats analytics image")
-
 <p align="center">
-  <img src="image/logo1.png" alt="StarMiner brand trademark" width="420">
+  <img src="image/logo1.png" alt="Mineros" width="420">
 </p>
 
-<h1 align="center">StarMiner ESP-Miner</h1>
+<h1 align="center">Mineros</h1>
 
-StarMiner ESP-Miner is a firmware fork for StarMiner, a DC 12V Bitaxe-derived open hardware miner design. It is based on the open source ESP-Miner firmware for the [Bitaxe](https://github.com/bitaxeorg/bitaxe) and keeps the AxeOS web interface and ESP-IDF build flow.
+Mineros is firmware for Mineros DC 12V miner boards. It keeps the AxeOS web interface and the ESP-IDF build flow. This is a modified version of ESP-Miner, released under GPL-3 (November 2026).
 
-For stock Bitaxe hardware, use the upstream [ESP-Miner releases](https://github.com/bitaxeorg/ESP-Miner/releases/latest) and upstream [factory image flashing instructions](https://github.com/bitaxeorg/ESP-Miner/blob/master/flashing.md). For StarMiner DC 12V boards, build and flash images from this fork with the matching `config-601a.cvs` file.
+Build and flash images from this repository with the matching `config-601a.cvs` file.
 
-## StarMiner DC 12V hardware notes
+## Mineros DC 12V hardware notes
 
-- Target hardware: StarMiner DC 12V boards derived from the open Bitaxe hardware design.
-- Firmware base: upstream ESP-Miner with AxeOS, adapted for the StarMiner hardware configuration.
-- Power input: use the DC 12V supply required by the StarMiner board design. Do not assume stock Bitaxe power requirements apply.
-- Flashing: use firmware images and configuration files built from this fork for StarMiner boards. Upstream Bitaxe factory images may not match the DC 12V hardware variant.
+- Target hardware: Mineros DC 12V boards.
+- Power input: use the DC 12V supply required by the Mineros board. Use that supply, and confirm voltage before powering the board.
+- Flashing: use firmware images and configuration files built from this repository. Images built for a different board may not match this DC 12V hardware.
 - Tuning: verify cooling, ASIC voltage, ASIC frequency, and power delivery before increasing clocks or enabling overclock-style settings.
 
 ## Hardware design files
 
-The StarMiner BitaxeGamma601a V1.0 DC 12V hardware package is available in [`sch/`](./sch/). See [`sch/README_HARDWARE.md`](./sch/README_HARDWARE.md) for the PADS source inventory, schematic preview, Gerber outputs, and CERN-OHL-S-2 compliance notes.
+The Mineros BitaxeGamma601a V1.0 DC 12V hardware package is available in [`sch/`](./sch/). See [`sch/README_HARDWARE.md`](./sch/README_HARDWARE.md) for the PADS source inventory, schematic preview, Gerber outputs, and CERN-OHL-S-2 compliance notes.
 
 Key hardware files:
 
@@ -37,12 +29,12 @@ Key hardware files:
 ## Device photos
 
 <p align="center">
-  <img src="image/1782460414834..jpg" alt="StarMiner DC 12V device photo" width="45%">
-  <img src="image/1782460414912..jpg" alt="StarMiner DC 12V device photo" width="45%">
+  <img src="image/1782460414834..jpg" alt="Mineros DC 12V device photo" width="45%">
+  <img src="image/1782460414912..jpg" alt="Mineros DC 12V device photo" width="45%">
 </p>
 
 # Bitaxetool
-We also have a command line python tool for flashing Bitaxe/StarMiner devices and updating the config called Bitaxetool 
+We also have a command line python tool for flashing Mineros devices and updating the config called Bitaxetool 
 
 **Bitaxetool Requires Python3.4 or later and pip**
 
@@ -51,7 +43,7 @@ Install bitaxetool from pip. pip is included with Python 3.4 but if you need to 
 ```
 pip install --upgrade bitaxetool
 ```
-The bitaxetool includes the necessary libraries for flashing binaries to Bitaxe-derived hardware, including StarMiner.
+The bitaxetool includes the necessary libraries for flashing binaries to Mineros hardware.
 
 **Notes**
  - The bitaxetool does not work properly with esptool v5.x.x, esptool v4.9.0 or earlier is required.
@@ -61,12 +53,12 @@ The bitaxetool includes the necessary libraries for flashing binaries to Bitaxe-
 pip install bitaxetool==0.6.1
 ```
 
-- Flash a "factory" image to reset to factory settings. Make sure to choose an image built for your exact hardware version or StarMiner board variant:
+- Flash a "factory" image to reset to factory settings. Make sure to choose an image built for your exact hardware version:
 
 ```
 bitaxetool --firmware ./esp-miner-factory-601a-vX.Y.Z.bin
 ```
-- Flash just the NVS config to a StarMiner/Bitaxe board:
+- Flash just the NVS config to a Mineros board:
 
 ```
 bitaxetool --config ./config-601a.cvs
@@ -231,7 +223,7 @@ If multiple devices attempt to use the same hostname, ESP-Miner automatically re
 
 ## Administration
 
-The firmware hosts a small web server on port 80 for administrative purposes. Once the Bitaxe device is connected to the local network, the admin web front end may be accessed via a web browser connected to the same network at `http://<IP>`, replacing `IP` with the LAN IP address of the Bitaxe device, or `http://bitaxe`, provided your network supports mDNS configuration.
+The firmware hosts a small web server on port 80 for administrative purposes. Once the Mineros device is connected to the local network, the admin web front end may be accessed via a web browser connected to the same network at `http://<IP>`, replacing `IP` with the LAN IP address of the device, or `http://bitaxe`, provided your network supports mDNS configuration. The default hostname is `bitaxe`.
 
 ### Recovery
 
@@ -239,7 +231,7 @@ In the event that the admin web front end is inaccessible, for example because o
 
 ### Unlock Settings
 
-In order to unlock the Input fields for ASIC Frequency and ASIC Core Voltage you need to append `?oc` to the end of the settings tab URL in your browser. Be aware that without additional cooling overclocking can overheat and/or damage your StarMiner/Bitaxe board.
+In order to unlock the Input fields for ASIC Frequency and ASIC Core Voltage you need to append `?oc` to the end of the settings tab URL in your browser. Be aware that without additional cooling overclocking can overheat and/or damage your Mineros board.
 
 ## Development using esp-miner/devcontainer
 
@@ -254,8 +246,8 @@ This configuration allows you to edit locally and compile the source code using 
 These instructions will assume an installation to your home directory.
 ```
 cd ~
-git clone --recursive https://github.com/awxhw/StarMiner.git
-cd StarMiner
+git clone --recursive https://github.com/satoshiware/mineros.git
+cd mineros
 git checkout <the branch you want>
 git submodule update --init --recursive
 # The next step builds the docker container that will compile the source code
@@ -265,7 +257,7 @@ docker build -t espminer-build .devcontainer
 ### Building
 
 ```
-cd ~/StarMiner
+cd ~/mineros
 docker run --rm -it -v $PWD:/workspace espminer-build /bin/bash
 git config --global --add safe.directory /workspace    # set git permissions or build will fail; only done once
 cd /workspace
@@ -285,7 +277,7 @@ Once the build is done exit out of the docker session and flash the new firmware
 
 This project uses git submodules (e.g. libsecp256k1). Clone with `--recursive`:
 ```
-git clone --recursive https://github.com/awxhw/StarMiner.git
+git clone --recursive https://github.com/satoshiware/mineros.git
 ```
 
 If you already have a checkout, initialize the submodules with:
@@ -302,24 +294,24 @@ idf.py build && ./merge_bin.sh ./esp-miner-merged.bin
 
 Note: the merge_bin.sh script is a custom script that merges the bootloader, partition table, and the application binary into a single file.
 
-Note: if using VSCode, you may have to configure the settings.json file to match your esp hardware version. For example, if your bitaxe has something other than an esp32-s3, you will need to change the version in the `.vscode/settings.json` file.
+Note: if using VSCode, you may have to configure the settings.json file to match your esp hardware version. For example, if your board has something other than an esp32-s3, you will need to change the version in the `.vscode/settings.json` file.
 
 ### Flashing
 
-With the StarMiner/Bitaxe connected to your computer via USB, run:
+With the Mineros board connected to your computer via USB, run:
 
 ```
 bitaxetool --config ./config-601a.cvs --firmware ./esp-miner-merged.bin
 ```
 
-where 601a is the config file for your hardware version. For StarMiner DC 12V boards, use the config file that matches the StarMiner hardware variant from this fork. You can see the list of available config files in the root of the repository.
+where 601a is the config file for your hardware version. For Mineros DC 12V boards, use the config file that matches that board. You can see the list of available config files in the root of the repository.
 
 A custom board version is also possible with `config-custom.cvs`. A custom board needs to be based on an existing `devicemodel` and `asicmodel`.
 
 **Notes:** 
   - If you are developing within a dev container, you will need to run the bitaxetool command from outside the container. Otherwise, you will get an error about the device not being found.
-  - Some Bitaxe versions can't directly connect to a USB-C port. If yours is affected use a USB-A adapter as a workaround. More about it [here](https://github.com/bitaxeorg/bitaxeGamma/issues/37).
-  - Only ESP32-S3-WROOM-1 module type N16R8 (16MB Flash, 8MB Octal SPI PSRAM) is supported. This model number should be visible on the ESP32 module. Other module types without PSRAM or with Quad SPI PSRAM will not work with the normal firmware. More about it [here](https://github.com/bitaxeorg/ESP-Miner/issues/826).
+  - Some boards can't directly connect to a USB-C port. If yours is affected, use a USB-A adapter.
+  - Only ESP32-S3-WROOM-1 module type N16R8 (16MB Flash, 8MB Octal SPI PSRAM) is supported. This model number should be visible on the ESP32 module. Other module types without PSRAM or with Quad SPI PSRAM will not work with the normal firmware.
 
 ### Wi-Fi routers
 
@@ -341,13 +333,13 @@ the Stratum Host and Stratum Port.
 | :---: | :---: | :---: | :---: |
 | support@ustarminer.com | <img src="image/telegram.png" alt="Telegram contact QR code" width="120"> | <img src="image/whatsapp.png" alt="WhatsApp contact QR code" width="120"> | [www.ustarminer.com](https://www.ustarminer.com/) |
 
-For StarMiner DC 12V hardware questions, firmware issues, or compatibility reports, please contact support or open a [GitHub issue](https://github.com/awxhw/StarMiner/issues) with your board variant, firmware version, power supply details, and relevant logs.
+For Mineros DC 12V hardware questions, firmware issues, or compatibility reports, please contact support or open a [GitHub issue](https://github.com/satoshiware/mineros/issues) with your board variant, firmware version, power supply details, and relevant logs.
 
 ## Brand and trademark notice
 
-StarMiner is used in this repository as the project and product mark for this DC 12V Bitaxe-derived hardware and firmware fork. The StarMiner name, device photos, and related project branding should not be used in a way that suggests official endorsement, certification, or release ownership without permission from the project maintainers.
+Mineros is the product mark for this DC 12V miner hardware and firmware. The Mineros name, device photos, and related project branding should not be used in a way that suggests official endorsement, certification, or release ownership without permission from the project maintainers.
 
-Bitaxe, ESP-Miner, AxeOS, and other third-party names remain the property of their respective owners. References to upstream projects are descriptive and are provided for attribution and compatibility context only.
+ESP-Miner, AxeOS, and other third-party names remain the property of their respective owners.
 
 ## Attributions
 
