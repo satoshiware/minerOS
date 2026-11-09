@@ -1,5 +1,6 @@
 import { Component, ElementRef, Input, ViewChild, OnInit, OnDestroy } from '@angular/core';
-import { Observable, Subject, takeUntil } from 'rxjs';
+import { EMPTY, Observable, Subject, takeUntil } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { ToastrService } from 'ngx-toastr';
 import { SystemApiService } from 'src/app/services/system.service';
 import { LiveDataService } from 'src/app/services/live-data.service';
@@ -17,6 +18,7 @@ export class AppTopBarComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   public info$: Observable<ISystemInfo>;
+  public stickName = '';
   public sensitiveDataHidden: boolean = false;
   public isMiningPaused: boolean = false;
   public items!: MenuItem[];
@@ -48,6 +50,23 @@ export class AppTopBarComponent implements OnInit, OnDestroy {
         this.isMiningPaused = (info as any).miningPaused;
       }
     });
+
+    this.systemService.getAsicSettings().pipe(
+      takeUntil(this.destroy$),
+      catchError(() => EMPTY)
+    ).subscribe((asic) => {
+      this.stickName = this.stickNameFor(asic.asicCount);
+    });
+  }
+
+  private stickNameFor(count: number | undefined): string {
+    switch (count) {
+      case 1: return 'QuarterStick';
+      case 2: return 'HalfStick';
+      case 4: return 'FullStick';
+      case 8: return 'DoubleStick';
+      default: return '';
+    }
   }
 
   ngOnDestroy() {

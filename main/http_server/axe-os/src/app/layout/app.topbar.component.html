@@ -1,13 +1,12 @@
 <div class="layout-topbar">
     <div class="layout-brand">
-        <a routerLink="" aria-label="Satoshiware">
-            <img src="assets/satoshiware-logo.png" alt="Satoshiware" class="layout-brand-logo" />
-        </a>
-        <span *ngIf="info$ | async as brandInfo"
-            class="layout-brand-host text-500 select-none"
-            tooltipPosition="bottom"
-            pTooltip="Hostname"
-        >{{brandInfo.hostname}}</span>
+        <div class="layout-brand-lockup">
+            <a routerLink="" aria-label="Satoshiware">
+                <img src="assets/satoshiware-logo.png" alt="Satoshiware" class="layout-brand-logo" />
+            </a>
+            <span class="layout-brand-os">minerOS</span>
+        </div>
+        <span class="layout-brand-host text-500 select-none" *ngIf="stickName">{{stickName}}</span>
     </div>
 
     <ng-container *ngIf="info$ | async as info">

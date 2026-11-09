@@ -33,12 +33,47 @@
         margin-right: 0.75rem;
     }
 
+    .layout-brand-lockup {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.4rem;
+        min-width: 0;
+        max-width: 100%;
+    }
+
     .layout-brand-logo {
         display: block;
-        height: auto;
+        height: 2.15rem;
         width: auto;
-        max-height: 2.15rem;
         max-width: 100%;
+    }
+
+    .layout-brand-os {
+        color: #EAA006;
+        font-family: 'Sofia Sans', sans-serif;
+        font-weight: 800;
+        font-size: 1.7rem;
+        line-height: 0.78;
+        letter-spacing: -0.035em;
+        padding-bottom: 0.12rem;
+        white-space: nowrap;
+    }
+
+    @media screen and (max-width: 575px) {
+        .layout-brand-lockup {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.05rem;
+        }
+
+        .layout-brand-logo {
+            height: 1.35rem;
+        }
+
+        .layout-brand-os {
+            font-size: 1.05rem;
+            padding-bottom: 0;
+        }
     }
 
     .layout-brand-host {

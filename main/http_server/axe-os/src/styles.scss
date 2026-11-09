@@ -6,6 +6,14 @@
     font-style: normal;
 }
 
+@font-face {
+    font-family: 'Sofia Sans';
+    src: url(/assets/fonts/SofiaSans-ExtraBold.ttf) format('truetype');
+    font-weight: 800;
+    font-display: swap;
+    font-style: normal;
+}
+
 * {
     font-family: 'Nippo-Regular';
 }
