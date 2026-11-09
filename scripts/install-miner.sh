@@ -2,7 +2,7 @@
 # Install this firmware on a StarMiner that is already joined to Wi-Fi.
 #
 # On a new PC:
-#   git clone --recurse-submodules --branch split --single-branch \
+#   git clone --recurse-submodules --branch main --single-branch \
 #     https://github.com/satoshiware/minerOS.git
 #   cd minerOS
 #   ./scripts/install-miner.sh 192.168.1.50
@@ -12,13 +12,13 @@
 # address, hard-refresh, and set the pool host, port, user, and password.
 # Split stays off until that switch is turned on.
 #
-# Override the source with REPO_URL and BRANCH. The installable firmware is
-# the split branch. Company main is the earlier rebrand and is not this image.
+# Override the source with REPO_URL and BRANCH. The company repo publishes
+# this firmware on main.
 
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/satoshiware/minerOS.git}"
-BRANCH="${BRANCH:-split}"
+BRANCH="${BRANCH:-main}"
 ASSUME_YES=0
 MINER_IP=""
 
