@@ -199,6 +199,24 @@ components:
         - stratumTLS
         - stratumCert
         - stratumDecodeCoinbase
+        - splitMode
+        - pool2Connected
+        - pool3Connected
+        - splitForcePool
+        - pool1JobPercent
+        - pool2JobPercent
+        - pool3JobPercent
+        - pool3StratumURL
+        - pool3StratumPort
+        - pool3StratumUser
+        - pool3StratumSuggestedDifficulty
+        - pool3StratumExtranonceSubscribe
+        - pool3StratumTLS
+        - pool3StratumCert
+        - pool3StratumDecodeCoinbase
+        - pool3StratumProtocol
+        - pool3StratumV2AuthorityPubkey
+        - pool3StratumV2ChannelType
         - temp
         - temp2
         - uptimeSeconds
@@ -371,6 +389,62 @@ components:
         isUsingFallbackStratum:
           type: number
           description: Whether using fallback stratum (0=no, 1=yes)
+        splitMode:
+          type: boolean
+          description: Whether filled pools share jobs evenly
+        pool2Connected:
+          type: boolean
+          description: Whether the second pool session is connected
+        pool3Connected:
+          type: boolean
+          description: Whether the third pool session is connected
+        splitForcePool:
+          type: number
+          description: Reserved split override (0 = even share)
+        pool1JobPercent:
+          type: number
+          description: Percent of jobs sent to pool 1
+        pool2JobPercent:
+          type: number
+          description: Percent of jobs sent to pool 2
+        pool3JobPercent:
+          type: number
+          description: Percent of jobs sent to pool 3
+        pool3StratumURL:
+          type: string
+          description: Third pool stratum server URL
+        pool3StratumPort:
+          type: number
+          description: Third pool stratum server port
+        pool3StratumUser:
+          type: string
+          description: Third pool stratum username
+        pool3StratumSuggestedDifficulty:
+          type: number
+          description: Third pool suggested difficulty
+        pool3StratumExtranonceSubscribe:
+          type: boolean
+          description: Enable third pool extranonce subscription
+        pool3StratumTLS:
+          type: number
+          description: Third pool TLS mode (0=off, 1=on, 2=custom cert)
+        pool3StratumCert:
+          type: string
+          description: Third pool TLS certificate
+        pool3StratumDecodeCoinbase:
+          type: boolean
+          description: Enable third pool coinbase transaction decoding
+        pool3StratumProtocol:
+          type: string
+          enum: [SV1, SV2]
+          description: Third pool stratum protocol
+        pool3StratumV2AuthorityPubkey:
+          type: string
+          description: Third pool SV2 authority public key (base58-encoded)
+        pool3StratumV2ChannelType:
+          type: string
+          enum: [standard, extended]
+          description: Third pool SV2 channel type
         macAddr:
           type: string
           description: Device MAC address
