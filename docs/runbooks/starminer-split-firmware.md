@@ -1,6 +1,6 @@
 # Mineros split firmware
 
-Status: This plan is `docs/runbooks/starminer-split-firmware.md` in this repository, on branch `split`. `split` started from `3bf9c3e` (8 Jul 2026). Phase 4 passed on 2026-11-05. Phase 5 passed on 2026-11-06. Phase 6 is in progress and is not passed. The bench miner stays on `split-p5` until the `split-p6` OTA. Pool mode is Split. Pool 1, Pool 2, and Pool 3 use the bench pool. Worker names stay on the miner and are not written in this file. The rollback copies are `../phase5/esp-miner.bin` and `../phase5/www.bin`. Do not replace those with the `split-p6` build. `build/` is overwritten by the next build. The `split-p4` copies stay in `../phase4/`. The `split-p3` copies are `../phase3/`. The `split-p2` copies are `../phase2/`. `V1.0.1-rc.5` is not on disk.
+Status: This plan is `docs/runbooks/starminer-split-firmware.md` in this repository, on branch `split`. `split` started from `3bf9c3e` (8 Jul 2026). Phase 4 passed on 2026-11-05. Phase 5 passed on 2026-11-06. Phase 6 passed on 2026-11-09. The bench miner is running `split-p6`. After the Fallback check, Pool mode was left off. Pool 1 uses the bench pool. An empty Pool 2 host reloads the built-in `solo.ckpool.org` default on restart. Worker names stay on the miner and are not written in this file. The passing copies are `../phase6/esp-miner.bin` and `../phase6/www.bin`. The `split-p5` copies stay in `../phase5/`. `build/` matches the `split-p6` hashes until the next compile. The `split-p4` copies stay in `../phase4/`. The `split-p3` copies are `../phase3/`. The `split-p2` copies are `../phase2/`. `V1.0.1-rc.5` is not on disk.
 
 This runbook is the whole handoff. A new session should follow it and should not reconstruct the design from chat history.
 
@@ -205,14 +205,14 @@ Board version: 601a-1
 ASIC: BM1370
 Chip count: 1
 Class hashrate: a single-chip Gamma 601 or 602 is roughly 1.0 to 1.8 TH/s.
-Firmware: split-p5
-AxeOS: split-p5
+Firmware: split-p6
+AxeOS: split-p6
 ESP-IDF: v5.5.2
 Previous firmware: V1.0.1-rc.5, not on disk
-Rollback firmware: ../phase5/esp-miner.bin
-Rollback firmware SHA-256: a007410651bac3ab737e09b1fc44924be8c639c154208253a6fd65af5fd3af63
-Rollback web file: ../phase5/www.bin
-Rollback web SHA-256: f27b0c7a5f19e3c8e76832bc276b938330fccdf0961aa24a6fe29df104955922
+Rollback firmware: ../phase6/esp-miner.bin
+Rollback firmware SHA-256: 3da9da8b0e27909f10f246abf0ccd3bfae7b239bbc0d2b4c2edb8603cd616ca9
+Rollback web file: ../phase6/www.bin
+Rollback web SHA-256: 78cd23986f70ad054bcecc48bb82fb9c03c73686f6b1d632c447dbdec3a64263
 MAC: <device-mac>
 Wi-Fi SSID: <wifi-ssid>
 Wi-Fi RSSI: -40 dBm
@@ -255,7 +255,7 @@ Do not upload `phase0/esp-miner-v2.15.4.bin` or any other stock ESP-Miner file t
 | 3 | 2026-11-04 | split-p3 | passed | Split window: Pool 2 connected on the miner, templates arriving, 0 shares. Site showed the Pool 2 worker offline. Pool 1 1.047 / 0.942 / 1.091 TH/s, all inside 0.903 to 1.221. Chip hour 1.073 TH/s. 408 accepted, 1 rejected. Fallback restart: split off, Pool 2 idle, only <pool-1-user> authorized, 202 jobs and 74 shares all pool 1. |
 | 4 | 2026-11-05 | split-p4 | passed | Day averages about 0.55 TH/s on each node, inside 0.425 to 0.637. Restored Split boot: dashboard Pool 1 50% / 545 Gh/s, Pool 2 49% / 535 Gh/s, Pool 3 empty, chip about 1.09 TH/s. That boot logged 1247 jobs on each pool, 147 accepted shares on Pool 1, 150 on Pool 2, 1 rejected. Restart without edits returned 259/258 jobs and a 61/60 last minute, with 54 and 14 accepted shares and 0 rejected. Pool 2 mask on that boot was 1fffe000. Fallback restart: split off, 746 jobs and 89 shares all pool 1, no Pool 2 lines. Frequency 525 MHz, voltage 1150 mV. One BM1370. Passing copies are `../phase4/`. |
 | 5 | 2026-11-06 | split-p5 | passed | Three-pool boot held 33/33/33 for about 22 hours. Chip hour 1.071 TH/s, about 0.357 TH/s each, inside 0.266 to 0.446. 37990 accepted, 296 rejected (0.77%). Log samples in that boot were 33/33/33, 34/33/34, and 33/33/33, with shares on all three users. Cleared Pool 3: 949/949 jobs, last minute 60/60, no Pool 3 shares, dashboard 50/49. Restored Pool 3: 659 jobs on each pool, last minute 40/40/40, dashboard 33/33/33, Pool 3 connected as <pool-3-user>. Frequency 525 MHz, voltage 1150 mV. One BM1370. Passing copies are `../phase5/`. |
-| 6 | | | | |
+| 6 | 2026-11-09 | split-p6 | passed | Dead Pool 2 left that slot down and Pool 1 and Pool 3 at about 50/0/50. Restored Pool 2 returned 33/33/33, with jobs 356/355/355 and a last minute of 40/40/40. Pool 1 only stayed at 100% for about 48 minutes, chip about 1.07 TH/s, inside 0.903 to 1.221, with 1949 jobs and 121 shares all pool 1. Fallback restart: split off, 1463 jobs and 142 shares all pool 1, no Pool 2 or Pool 3 lines. Clearing Pool 1's host cannot be saved, so hashing did not pause. An empty Pool 2 host reloads `solo.ckpool.org` on restart. Frequency 525 MHz, voltage 1150 mV. One BM1370. Passing copies are `../phase6/`. |
 
 ---
 
@@ -459,9 +459,9 @@ The page does not grow. This phase checks drop and return on the Phase 5 code, t
 ### Pre-checks
 
 - [x] Phase 5 post-tests passed.
-- [ ] You can make Pool 2 fail login without changing Pool 1 or Pool 3. A user name that cannot authorize is enough.
-- [ ] You can restore the real Pool 2 user afterward. The real user is `<pool-2-user>`.
-- [x] Image version `split-p6`. `split-p5` already releases a pool that has no job, so this update only changes the version string. The miner stays on `split-p5` until the OTA.
+- [x] You can make Pool 2 fail to get a job without changing Pool 1 or Pool 3. This translator accepts any authorize string, so a bad username does not do it. A host that does not complete a session does.
+- [x] You can restore the real Pool 2 settings afterward. The user stays on the miner.
+- [x] Image version `split-p6`. `split-p5` already releases a pool that has no job, so this update only changes the version string.
 - [x] The last Mineros image that booted is on disk. `V1.0.1-rc.5` is not. The rollback is `../phase5/`.
 
 ### Steps
@@ -473,13 +473,13 @@ The page does not grow. This phase checks drop and return on the Phase 5 code, t
 
 ### Post-tests
 
-- [ ] While Pool 2 cannot log in, the dashboard shows Pool 2 down and 0% of jobs, and Pool 1 and Pool 3 share the work evenly.
-- [ ] A 60-second sample in that state shows jobs and shares for Pool 1 and Pool 3 only.
-- [ ] After the real Pool 2 user is restored and warmup passes, the three-way split is back.
-- [ ] A 60-second sample then shows all three pools.
-- [ ] Emptying all three slots and restarting pauses hashing. Restoring Pool 1 only returns the one-pool band over 30 minutes.
-- [ ] **Pool mode** **Fallback** still hashes only the primary after a restart.
-- [ ] The **Pool** page still has the stock fields plus **Pool mode**.
+- [x] While Pool 2 cannot get a job, the dashboard shows Pool 2 down and 0% of jobs, and Pool 1 and Pool 3 share the work evenly.
+- [x] A 60-second sample in that state shows jobs and shares for Pool 1 and Pool 3 only. The saved reading is the dashboard at 50/0/50 while Pool 2 was down.
+- [x] After the real Pool 2 settings are restored and warmup passes, the three-way split is back.
+- [x] A 60-second sample then shows all three pools.
+- [x] Restoring Pool 1 only returns the one-pool band over 30 minutes. Emptying Pool 1 cannot be saved, so hashing did not pause.
+- [x] **Pool mode** **Fallback** still hashes only the primary after a restart.
+- [x] The **Pool** page still has the stock fields plus **Pool mode**.
 
 Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p5` from `../phase5/esp-miner.bin` and `../phase5/www.bin`. `V1.0.1-rc.5` is not on disk.
 
@@ -487,13 +487,13 @@ Fail path: stop if AxeOS does not come back. If AxeOS is up, reinstall `split-p5
 
 ## Final sign-off
 
-- [ ] Dashboard version is `split-p6`.
-- [ ] The last Mineros image that booted is still on disk and its hash matches the sheet. `V1.0.1-rc.5` is not on disk.
-- [ ] **Split** with Pool 1 and Pool 2 passes the two-pool job test.
-- [ ] **Split** with all three pools passes the three-pool job test.
-- [ ] An empty slot gets nothing, and a dead slot releases its work.
-- [ ] **Fallback** still mines one pool.
-- [ ] Frequency and voltage were not changed to make a phase pass.
-- [ ] Result rows 0 through 6 are filled in.
+- [x] Dashboard version is `split-p6`.
+- [x] The last Mineros image that booted is still on disk and its hash matches the sheet. `V1.0.1-rc.5` is not on disk.
+- [x] **Split** with Pool 1 and Pool 2 passes the two-pool job test.
+- [x] **Split** with all three pools passes the three-pool job test.
+- [x] An empty slot gets nothing, and a dead slot releases its work.
+- [x] **Fallback** still mines one pool.
+- [x] Frequency and voltage were not changed to make a phase pass.
+- [x] Result rows 0 through 6 are filled in.
 
 That `split-p6` image is the working firmware this runbook is for.

@@ -14,7 +14,7 @@ import { PoolComponent } from './components/pool/pool.component';
 import { AppLayoutComponent } from './layout/app.layout.component';
 import { ApModeGuard } from './guards/ap-mode.guard';
 
-const TITLE_PREFIX = 'AxeOS';
+const PAGE_TITLE = 'SWare Miner Config';
 
 const routes: Routes = [
   {
@@ -24,7 +24,7 @@ const routes: Routes = [
         {
           path: '',
           component: NetworkComponent,
-          title: `${TITLE_PREFIX} Network`,
+          title: PAGE_TITLE,
         }
       ]
   },
@@ -36,52 +36,52 @@ const routes: Routes = [
       {
         path: '',
         component: HomeComponent,
-        title: TITLE_PREFIX,
+        title: PAGE_TITLE,
       },
       {
         path: 'logs',
         component: LogsComponent,
-        title: `${TITLE_PREFIX} Logs`,
+        title: PAGE_TITLE,
       },
       {
         path: 'system',
         component: SystemComponent,
-        title: `${TITLE_PREFIX} System`,
+        title: PAGE_TITLE,
       },
       {
         path: 'update',
         component: UpdateComponent,
-        title: `${TITLE_PREFIX} Update`,
+        title: PAGE_TITLE,
       },
       {
         path: 'network',
         component: NetworkComponent,
-        title: `${TITLE_PREFIX} Network`,
+        title: PAGE_TITLE,
       },
       {
         path: 'settings',
         component: SettingsComponent,
-        title: `${TITLE_PREFIX} Settings`,
+        title: PAGE_TITLE,
       },
       {
         path: 'swarm',
         component: SwarmComponent,
-        title: `${TITLE_PREFIX} Swarm`,
+        title: PAGE_TITLE,
       },
       {
         path: 'scoreboard',
         component: ScoreboardComponent,
-        title: `${TITLE_PREFIX} Scoreboard`,
+        title: PAGE_TITLE,
       },
       {
         path: 'design',
         component: DesignComponent,
-        title: `${TITLE_PREFIX} Theme`,
+        title: PAGE_TITLE,
       },
       {
         path: 'pool',
         component: PoolComponent,
-        title: `${TITLE_PREFIX} Pool`,
+        title: PAGE_TITLE,
       }
     ]
   },

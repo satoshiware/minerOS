@@ -3,3 +3,18 @@
     font-size: 1.5rem;
     top: 1rem;
 }
+
+.split-toggle {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.9rem;
+}
+
+.split-note {
+    display: block;
+    margin: 0;
+    max-width: 36rem;
+    line-height: 1.45;
+    color: var(--text-color-secondary);
+}
