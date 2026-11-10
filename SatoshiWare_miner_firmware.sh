@@ -1,54 +1,43 @@
 #!/usr/bin/env bash
-# Install this firmware on a StarMiner that is already joined to Wi-Fi.
+# Install this firmware on one miner that is already joined to Wi-Fi.
 #
-# On a new PC:
+# On any computer:
 #   git clone --recurse-submodules --branch main --single-branch \
 #     https://github.com/satoshiware/minerOS.git
 #   cd minerOS
-#   ./scripts/install-miner.sh 192.168.1.50
+#   ./SatoshiWare_miner_firmware.sh 192.168.38.62
 #
+# The next miner is the same command with that miner's IP.
 # The miner must already be on the network. The update is refused while the
 # miner is in its setup access point. After the install, open the printed
 # address, hard-refresh, and set the pool host, port, user, and password.
 # Split stays off until that switch is turned on.
-#
-# Override the source with REPO_URL and BRANCH. The company repo publishes
-# this firmware on main.
 
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/satoshiware/minerOS.git}"
 BRANCH="${BRANCH:-main}"
-ASSUME_YES=0
 MINER_IP=""
 
 usage() {
-  echo "Usage: $0 [--yes] <miner-ip>" >&2
+  echo "Usage: ./SatoshiWare_miner_firmware.sh <miner-ip>" >&2
+  echo "Example: ./SatoshiWare_miner_firmware.sh 192.168.38.62" >&2
   exit 1
 }
 
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --yes|-y) ASSUME_YES=1; shift ;;
-    -h|--help) usage ;;
-    *)
-      if [[ -n "$MINER_IP" ]]; then
-        usage
-      fi
-      MINER_IP="$1"
-      shift
-      ;;
-  esac
-done
+if [[ $# -ne 1 || "$1" == "-h" || "$1" == "--help" ]]; then
+  usage
+fi
 
+MINER_IP="$1"
 if [[ ! "$MINER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "Give the miner IP address, for example 192.168.1.50" >&2
+  echo "The miner IP must look like 192.168.38.62" >&2
   usage
 fi
 
 for cmd in git docker curl; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "This PC needs $cmd." >&2
+    echo "This computer needs $cmd." >&2
     exit 1
   fi
 done
@@ -59,7 +48,9 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/../CMakeLists.txt" && -f "$SCRIPT_DIR/../version.txt" ]]; then
+if [[ -f "$SCRIPT_DIR/CMakeLists.txt" && -f "$SCRIPT_DIR/version.txt" ]]; then
+  SRC="$SCRIPT_DIR"
+elif [[ -f "$SCRIPT_DIR/../CMakeLists.txt" && -f "$SCRIPT_DIR/../version.txt" ]]; then
   SRC="$(cd "$SCRIPT_DIR/.." && pwd)"
 else
   SRC="${SRC_DIR:-$HOME/minerOS}"
@@ -81,13 +72,6 @@ fi
 
 echo "Miner:  http://$MINER_IP"
 echo "Source: $SRC ($BRANCH)"
-if [[ "$ASSUME_YES" -ne 1 ]]; then
-  read -r -p "Build and install the firmware and the web page on this miner? [y/N] " answer
-  if [[ ! "$answer" =~ ^[Yy]$ ]]; then
-    echo "Cancelled."
-    exit 0
-  fi
-fi
 
 if ! docker image inspect espminer-build >/dev/null 2>&1; then
   echo "Building the compiler image. The first time takes a while."
@@ -128,7 +112,7 @@ if ! curl -fsS --max-time 5 "http://$MINER_IP/api/system/info" >/dev/null; then
   exit 1
 fi
 
-echo "Installing firmware"
+echo "Installing firmware on $MINER_IP"
 curl -fS --max-time 300 -X POST \
   -H "Content-Type: application/octet-stream" \
   --data-binary @"$FW" \
@@ -138,7 +122,7 @@ echo "Waiting for the reboot"
 sleep 8
 wait_for_miner
 
-echo "Installing the web page"
+echo "Installing the web page on $MINER_IP"
 curl -fS --max-time 300 -X POST \
   -H "Content-Type: application/octet-stream" \
   --data-binary @"$WWW" \
@@ -151,7 +135,8 @@ sleep 8
 wait_for_miner
 
 echo
-echo "Installed. Open http://$MINER_IP and hard-refresh (Command+Shift+R)."
+echo "Installed on http://$MINER_IP"
+echo "Hard-refresh that page (Command+Shift+R)."
 echo "On the Pool page, set the host, port, user, and password, then Save."
 echo "Split stays off until you turn it on and restart."
 if command -v python3 >/dev/null 2>&1; then
