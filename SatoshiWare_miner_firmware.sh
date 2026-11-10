@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# Install this firmware from any computer onto one miner already on Wi-Fi.
+# Upload the shared firmware files to one miner already on Wi-Fi.
 #
-# Nothing is sent to the user. Once this repo is public they run:
-#   curl -fsSL https://raw.githubusercontent.com/satoshiware/minerOS/main/SatoshiWare_miner_firmware.sh | bash -s -- 192.168.38.62
+# Put this script in the same folder as esp-miner.bin and www.bin, then:
+#   ./SatoshiWare_miner_firmware.sh 192.168.38.62
 #
-# That downloads this script, clones the repo, builds the firmware and the
-# web page, and installs both on the IP. The next miner is the same command
-# with that miner's IP. The computer needs git, curl, and Docker.
+# The next miner is the same command with that miner's IP.
+# The computer needs curl. This script installs curl when it is missing.
 # The miner must already be on the network. The update is refused while the
 # miner is in its setup access point. After the install, open the printed
 # address, hard-refresh, and set the pool host, port, user, and password.
@@ -14,13 +13,12 @@
 
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/satoshiware/minerOS.git}"
-BRANCH="${BRANCH:-main}"
 MINER_IP=""
 
 usage() {
-  echo "Usage: curl -fsSL https://raw.githubusercontent.com/satoshiware/minerOS/main/SatoshiWare_miner_firmware.sh | bash -s -- <miner-ip>" >&2
-  echo "Example: curl -fsSL https://raw.githubusercontent.com/satoshiware/minerOS/main/SatoshiWare_miner_firmware.sh | bash -s -- 192.168.38.62" >&2
+  echo "Usage: ./SatoshiWare_miner_firmware.sh <miner-ip>" >&2
+  echo "Example: ./SatoshiWare_miner_firmware.sh 192.168.38.62" >&2
+  echo "Run it from the folder that contains esp-miner.bin and www.bin." >&2
   exit 1
 }
 
@@ -34,59 +32,47 @@ if [[ ! "$MINER_IP" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   usage
 fi
 
-for cmd in git docker curl; do
-  if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "This computer needs $cmd." >&2
+ensure_curl() {
+  if command -v curl >/dev/null 2>&1; then
+    return
+  fi
+  echo "curl is missing. Installing it."
+  if [[ "$(uname -s)" == "Darwin" ]]; then
+    if command -v brew >/dev/null 2>&1; then
+      brew install curl
+    else
+      echo "Install curl, then run this again." >&2
+      exit 1
+    fi
+  elif command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get update && sudo apt-get install -y curl
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y curl
+  elif command -v yum >/dev/null 2>&1; then
+    sudo yum install -y curl
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -S --noconfirm curl
+  else
+    echo "Install curl, then run this again." >&2
     exit 1
   fi
-done
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "curl is still missing." >&2
+    exit 1
+  fi
+}
 
-if ! docker info >/dev/null 2>&1; then
-  echo "Docker is installed but not running." >&2
-  exit 1
-fi
+ensure_curl
 
-SRC="${SRC_DIR:-$HOME/minerOS}"
-if [[ -e "$SRC" && ! -d "$SRC/.git" ]]; then
-  echo "$SRC already exists and is not the firmware repo." >&2
-  exit 1
-fi
-if [[ ! -d "$SRC/.git" ]]; then
-  echo "Cloning $BRANCH from $REPO_URL"
-  git clone --recurse-submodules --branch "$BRANCH" --single-branch "$REPO_URL" "$SRC"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$PWD/esp-miner.bin" && -f "$PWD/www.bin" ]]; then
+  FW="$PWD/esp-miner.bin"
+  WWW="$PWD/www.bin"
+elif [[ -f "$SCRIPT_DIR/esp-miner.bin" && -f "$SCRIPT_DIR/www.bin" ]]; then
+  FW="$SCRIPT_DIR/esp-miner.bin"
+  WWW="$SCRIPT_DIR/www.bin"
 else
-  echo "Updating $SRC"
-  git -C "$SRC" fetch origin "$BRANCH"
-  git -C "$SRC" checkout "$BRANCH"
-  git -C "$SRC" pull --ff-only origin "$BRANCH"
-  git -C "$SRC" submodule update --init --recursive
-fi
-
-if [[ ! -d "$SRC/components/libsecp256k1/libsecp256k1/.git" && ! -f "$SRC/components/libsecp256k1/libsecp256k1/CMakeLists.txt" ]]; then
-  git -C "$SRC" submodule update --init --recursive
-fi
-
-echo "Miner:  http://$MINER_IP"
-echo "Source: $SRC ($BRANCH)"
-
-if ! docker image inspect espminer-build >/dev/null 2>&1; then
-  echo "Building the compiler image. The first time takes a while."
-  docker build -t espminer-build "$SRC/.devcontainer"
-fi
-
-echo "Building esp-miner.bin and www.bin"
-docker run --rm \
-  -v "$SRC":/workspaces \
-  -w /workspaces \
-  -e GIT_CONFIG_COUNT=1 \
-  -e GIT_CONFIG_KEY_0=safe.directory \
-  -e GIT_CONFIG_VALUE_0=/workspaces \
-  espminer-build idf.py build
-
-FW="$SRC/build/esp-miner.bin"
-WWW="$SRC/build/www.bin"
-if [[ ! -f "$FW" || ! -f "$WWW" ]]; then
-  echo "The build did not produce both install files." >&2
+  echo "Put esp-miner.bin and www.bin in this folder, then run the script again." >&2
   exit 1
 fi
 
@@ -101,6 +87,10 @@ wait_for_miner() {
   echo "The miner at $MINER_IP did not come back." >&2
   return 1
 }
+
+echo "Miner: http://$MINER_IP"
+echo "Firmware: $FW"
+echo "Web page: $WWW"
 
 echo "Checking the miner is on Wi-Fi"
 if ! curl -fsS --max-time 5 "http://$MINER_IP/api/system/info" >/dev/null; then
@@ -135,8 +125,3 @@ echo "Installed on http://$MINER_IP"
 echo "Hard-refresh that page (Command+Shift+R)."
 echo "On the Pool page, set the host, port, user, and password, then Save."
 echo "Split stays off until you turn it on and restart."
-if command -v python3 >/dev/null 2>&1; then
-  curl -fsS --max-time 5 "http://$MINER_IP/api/system/info" \
-    | python3 -c 'import json,sys; d=json.load(sys.stdin); print("Version:", d.get("version"), " Page:", d.get("axeOSVersion"))' \
-    || true
-fi
