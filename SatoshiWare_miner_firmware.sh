@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Install this firmware from any computer onto one miner already on Wi-Fi.
 #
-# Copy this file to the computer, then:
-#   ./SatoshiWare_miner_firmware.sh 192.168.38.62
+# Nothing is sent to the user. Once this repo is public they run:
+#   curl -fsSL https://raw.githubusercontent.com/satoshiware/minerOS/main/SatoshiWare_miner_firmware.sh | bash -s -- 192.168.38.62
 #
-# That command clones https://github.com/satoshiware/minerOS.git, builds the
-# firmware and the web page, and installs both on the IP you pass.
-# The next miner is the same command with that miner's IP.
-# The computer needs git, Docker, and access to the company GitHub.
+# That downloads this script, clones the repo, builds the firmware and the
+# web page, and installs both on the IP. The next miner is the same command
+# with that miner's IP. The computer needs git, curl, and Docker.
 # The miner must already be on the network. The update is refused while the
 # miner is in its setup access point. After the install, open the printed
 # address, hard-refresh, and set the pool host, port, user, and password.
@@ -20,8 +19,8 @@ BRANCH="${BRANCH:-main}"
 MINER_IP=""
 
 usage() {
-  echo "Usage: ./SatoshiWare_miner_firmware.sh <miner-ip>" >&2
-  echo "Example: ./SatoshiWare_miner_firmware.sh 192.168.38.62" >&2
+  echo "Usage: curl -fsSL https://raw.githubusercontent.com/satoshiware/minerOS/main/SatoshiWare_miner_firmware.sh | bash -s -- <miner-ip>" >&2
+  echo "Example: curl -fsSL https://raw.githubusercontent.com/satoshiware/minerOS/main/SatoshiWare_miner_firmware.sh | bash -s -- 192.168.38.62" >&2
   exit 1
 }
 
