@@ -34,7 +34,6 @@ jobs:
         df -h
         sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
         sudo rm -rf /usr/local/share/boost /usr/share/swift /usr/local/share/powershell /usr/local/share/chromium /opt/microsoft
-        sudo docker image prune --all --force
         df -h
     - name: esp-idf build
       uses: espressif/esp-idf-ci-action@v1
