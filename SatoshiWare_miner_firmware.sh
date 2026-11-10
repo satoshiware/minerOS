@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Install this firmware on one miner that is already joined to Wi-Fi.
+# Install this firmware from any computer onto one miner already on Wi-Fi.
 #
-# On any computer:
-#   git clone --recurse-submodules --branch main --single-branch \
-#     https://github.com/satoshiware/minerOS.git
-#   cd minerOS
+# Copy this file to the computer, then:
 #   ./SatoshiWare_miner_firmware.sh 192.168.38.62
 #
+# That command clones https://github.com/satoshiware/minerOS.git, builds the
+# firmware and the web page, and installs both on the IP you pass.
 # The next miner is the same command with that miner's IP.
+# The computer needs git, Docker, and access to the company GitHub.
 # The miner must already be on the network. The update is refused while the
 # miner is in its setup access point. After the install, open the printed
 # address, hard-refresh, and set the pool host, port, user, and password.
@@ -47,23 +47,20 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/CMakeLists.txt" && -f "$SCRIPT_DIR/version.txt" ]]; then
-  SRC="$SCRIPT_DIR"
-elif [[ -f "$SCRIPT_DIR/../CMakeLists.txt" && -f "$SCRIPT_DIR/../version.txt" ]]; then
-  SRC="$(cd "$SCRIPT_DIR/.." && pwd)"
+SRC="${SRC_DIR:-$HOME/minerOS}"
+if [[ -e "$SRC" && ! -d "$SRC/.git" ]]; then
+  echo "$SRC already exists and is not the firmware repo." >&2
+  exit 1
+fi
+if [[ ! -d "$SRC/.git" ]]; then
+  echo "Cloning $BRANCH from $REPO_URL"
+  git clone --recurse-submodules --branch "$BRANCH" --single-branch "$REPO_URL" "$SRC"
 else
-  SRC="${SRC_DIR:-$HOME/minerOS}"
-  if [[ ! -f "$SRC/CMakeLists.txt" ]]; then
-    echo "Cloning $BRANCH from $REPO_URL"
-    git clone --recurse-submodules --branch "$BRANCH" --single-branch "$REPO_URL" "$SRC"
-  else
-    echo "Updating $SRC"
-    git -C "$SRC" fetch origin "$BRANCH"
-    git -C "$SRC" checkout "$BRANCH"
-    git -C "$SRC" pull --ff-only origin "$BRANCH"
-    git -C "$SRC" submodule update --init --recursive
-  fi
+  echo "Updating $SRC"
+  git -C "$SRC" fetch origin "$BRANCH"
+  git -C "$SRC" checkout "$BRANCH"
+  git -C "$SRC" pull --ff-only origin "$BRANCH"
+  git -C "$SRC" submodule update --init --recursive
 fi
 
 if [[ ! -d "$SRC/components/libsecp256k1/libsecp256k1/.git" && ! -f "$SRC/components/libsecp256k1/libsecp256k1/CMakeLists.txt" ]]; then
