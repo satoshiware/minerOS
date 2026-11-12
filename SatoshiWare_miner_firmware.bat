@@ -10,8 +10,17 @@ if /I "%~1"=="-h" goto usage
 if /I "%~1"=="--help" goto usage
 
 set "MINER_IP=%~1"
-echo %MINER_IP% | findstr /R "^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$" >nul
-if errorlevel 1 (
+set "IP_OK="
+for /f "tokens=1-5 delims=." %%a in ("%MINER_IP%") do (
+  if "%%e"=="" if not "%%d"=="" (
+    call :octet "%%a"
+    if not errorlevel 1 call :octet "%%b"
+    if not errorlevel 1 call :octet "%%c"
+    if not errorlevel 1 call :octet "%%d"
+    if not errorlevel 1 set "IP_OK=1"
+  )
+)
+if not defined IP_OK (
   echo The miner IP must look like 192.168.38.75
   goto usage
 )
@@ -92,6 +101,13 @@ echo Installed on http://%MINER_IP%
 echo Hard-refresh that page.
 echo On the Pool page, set the host, port, user, and password, then Save.
 echo Split stays off until you turn it on and restart.
+exit /b 0
+
+:octet
+set "OCT=%~1"
+if "%OCT%"=="" exit /b 1
+for /f "delims=0123456789" %%n in ("%OCT%") do exit /b 1
+if %OCT% GTR 255 exit /b 1
 exit /b 0
 
 :wait_for_miner
