@@ -4,6 +4,9 @@
 # Put this script in the same folder as esp-miner.bin and www.bin, then:
 #   ./SatoshiWare_miner_firmware.sh 192.168.38.62
 #
+# On Windows Command Prompt, use the .bat file in that same folder:
+#   SatoshiWare_miner_firmware.bat 192.168.38.75
+#
 # The next miner is the same command with that miner's IP.
 # The computer needs curl. This script installs curl when it is missing.
 # The miner must already be on the network. The update is refused while the
@@ -64,6 +67,8 @@ ensure_curl() {
 
 ensure_curl
 
+FW_URL="${FW_URL:-https://raw.githubusercontent.com/satoshiware/minerOS/main/firmware/esp-miner.bin}"
+WWW_URL="${WWW_URL:-https://raw.githubusercontent.com/satoshiware/minerOS/main/firmware/www.bin}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -f "$PWD/esp-miner.bin" && -f "$PWD/www.bin" ]]; then
   FW="$PWD/esp-miner.bin"
@@ -72,8 +77,14 @@ elif [[ -f "$SCRIPT_DIR/esp-miner.bin" && -f "$SCRIPT_DIR/www.bin" ]]; then
   FW="$SCRIPT_DIR/esp-miner.bin"
   WWW="$SCRIPT_DIR/www.bin"
 else
-  echo "Put esp-miner.bin and www.bin in this folder, then run the script again." >&2
-  exit 1
+  DLDIR="${TMPDIR:-/tmp}/SatoshiWare-miner-firmware"
+  mkdir -p "$DLDIR"
+  echo "Downloading esp-miner.bin"
+  curl -fL --retry 3 --max-time 300 -o "$DLDIR/esp-miner.bin" "$FW_URL"
+  echo "Downloading www.bin"
+  curl -fL --retry 3 --max-time 300 -o "$DLDIR/www.bin" "$WWW_URL"
+  FW="$DLDIR/esp-miner.bin"
+  WWW="$DLDIR/www.bin"
 fi
 
 wait_for_miner() {
