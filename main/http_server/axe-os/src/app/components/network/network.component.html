@@ -1,5 +1,10 @@
 <div [ngClass]="{'card': (form$ | async), 'hidden': !(form$ | async)}">
-    <h2>Network Configuration</h2>
+    <div class="setup-brand">
+        <img src="assets/satoshiware-emblem.png" alt="" class="setup-emblem" />
+        <img src="assets/satoshiware-logo.png" alt="Satoshiware" class="setup-logo" />
+    </div>
+    <h2>Satoshiware Wi-Fi</h2>
+    <p>Enter the Wi-Fi this miner should join.</p>
 
     <app-network-edit></app-network-edit>
 </div>

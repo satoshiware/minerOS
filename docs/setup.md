@@ -4,21 +4,19 @@
 
 Plug the miner into power. Wait until the small screen is on.
 
-A new miner shows a setup Wi-Fi name. It looks like `Bitaxe_` followed by four characters, for example `Bitaxe_A1B2`. That name is also on the screen.
+A new miner shows a setup Wi-Fi name. It looks like `Satoshiware_` followed by four characters, for example `Satoshiware_A1B2`. That name is also on the screen, next to a code you can scan to join.
 
 ## 2. Join the miner’s setup Wi-Fi
 
-On a phone or computer, open the Wi-Fi list and connect to that `Bitaxe_` network. It has no password.
+On a phone or computer, open the Wi-Fi list and connect to that `Satoshiware_` network, or scan the code on the screen. It has no password.
 
-A setup page should open. If it does not, go to [http://192.168.4.1](http://192.168.4.1).
-
-Enter the name and password of the Wi-Fi network the miner should use, then save. The miner leaves the setup network and joins that Wi-Fi.
+The phone should open the Satoshiware Wi-Fi page. Enter the name and password of the network the miner should use, then save. The miner leaves the setup network and joins that Wi-Fi. If the page does not open, go to [http://192.168.4.1](http://192.168.4.1).
 
 ## 3. Find the miner’s address
 
 After it joins, the screen shows an address like `192.168.1.50`. You can also find that address in the router’s device list.
 
-The computer you use for the next step must be on that same Wi-Fi. The install does not run while the computer is still joined to the `Bitaxe_` setup network.
+The computer you use for the next step must be on that same Wi-Fi. The install does not run while the computer is still joined to the `Satoshiware_` setup network.
 
 ## 4. Install the firmware
 

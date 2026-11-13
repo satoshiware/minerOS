@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 #include "esp_event.h"
 #include "esp_log.h"
@@ -326,14 +327,24 @@ esp_err_t wifi_scan(wifi_ap_record_simple_t *ap_records, uint16_t *ap_count)
     ESP_LOGI(TAG, "Starting Wi-Fi scan!");
     is_scanning = true;
 
-    wifi_ap_record_t current_ap_info;
-    if (esp_wifi_sta_get_ap_info(&current_ap_info) != ESP_OK) {
-        ESP_LOGI(TAG, "Forcing disconnect so that we can scan!");
-        esp_wifi_disconnect();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    wifi_mode_t mode = WIFI_MODE_NULL;
+    esp_wifi_get_mode(&mode);
+    bool switched_to_apsta = false;
+    if (mode == WIFI_MODE_AP) {
+        if (esp_wifi_set_mode(WIFI_MODE_APSTA) == ESP_OK) {
+            switched_to_apsta = true;
+            vTaskDelay(100 / portTICK_PERIOD_MS);
+        }
     }
 
-     wifi_scan_config_t scan_config = {
+    wifi_ap_record_t current_ap_info;
+    if (mode == WIFI_MODE_APSTA && esp_wifi_sta_get_ap_info(&current_ap_info) != ESP_OK) {
+        ESP_LOGI(TAG, "Forcing disconnect so that we can scan!");
+        esp_wifi_disconnect();
+        vTaskDelay(300 / portTICK_PERIOD_MS);
+    }
+
+    wifi_scan_config_t scan_config = {
         .ssid = 0,
         .bssid = 0,
         .channel = 0,
@@ -343,6 +354,9 @@ esp_err_t wifi_scan(wifi_ap_record_simple_t *ap_records, uint16_t *ap_count)
     esp_err_t err = esp_wifi_scan_start(&scan_config, false);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Wi-Fi scan start failed with error: %s", esp_err_to_name(err));
+        if (switched_to_apsta) {
+            esp_wifi_set_mode(WIFI_MODE_AP);
+        }
         is_scanning = false;
         return err;
     }
@@ -352,9 +366,16 @@ esp_err_t wifi_scan(wifi_ap_record_simple_t *ap_records, uint16_t *ap_count)
         retries_remaining--;
         if (retries_remaining == 0) {
             is_scanning = false;
+            if (switched_to_apsta) {
+                esp_wifi_set_mode(WIFI_MODE_AP);
+            }
             return ESP_FAIL;
         }
         vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+
+    if (switched_to_apsta) {
+        esp_wifi_set_mode(WIFI_MODE_AP);
     }
 
     ESP_LOGD(TAG, "Wi-Fi networks found: %d", ap_number);
@@ -397,6 +418,24 @@ static void event_handler(void * arg, esp_event_base_t event_base, int32_t event
                 ESP_LOGI(TAG, "Failed esp_wifi_scan_get_ap_records");
             }
             is_scanning = false;
+        }
+
+        if (event_id == WIFI_EVENT_AP_STACONNECTED) {
+            clients_connected_to_ap += 1;
+            // A scan blanks the setup Wi-Fi. The phone's sign-in check
+            // happens in the first second after it connects, so stop scanning.
+            if (is_scanning) {
+                esp_wifi_scan_stop();
+                is_scanning = false;
+            }
+            return;
+        }
+        
+        if (event_id == WIFI_EVENT_AP_STADISCONNECTED) {
+            if (clients_connected_to_ap > 0) {
+                clients_connected_to_ap -= 1;
+            }
+            return;
         }
 
         if (is_scanning) {
@@ -462,14 +501,6 @@ static void event_handler(void * arg, esp_event_base_t event_base, int32_t event
         if (event_id == WIFI_EVENT_AP_STOP) {
             ESP_LOGI(TAG, "Configuration Access Point disabled");
             GLOBAL_STATE->SYSTEM_MODULE.ap_enabled = false;
-        }
-
-        if (event_id == WIFI_EVENT_AP_STACONNECTED) {
-            clients_connected_to_ap += 1;
-        }
-        
-        if (event_id == WIFI_EVENT_AP_STADISCONNECTED) {
-            clients_connected_to_ap -= 1;
         }
     }
 
@@ -542,7 +573,7 @@ esp_netif_t * wifi_init_softap(GlobalState * GLOBAL_STATE)
     uint8_t mac[6];
     esp_wifi_get_mac(ESP_IF_WIFI_AP, mac);
     // Format the last 4 bytes of the MAC address as a hexadecimal string
-    snprintf(GLOBAL_STATE->SYSTEM_MODULE.ap_ssid, sizeof(GLOBAL_STATE->SYSTEM_MODULE.ap_ssid), "Bitaxe_%02X%02X", mac[4], mac[5]);
+    snprintf(GLOBAL_STATE->SYSTEM_MODULE.ap_ssid, sizeof(GLOBAL_STATE->SYSTEM_MODULE.ap_ssid), "Satoshiware_%02X%02X", mac[4], mac[5]);
 
     wifi_config_t wifi_ap_config = { 0 };
     wifi_ap_config.ap.ssid_len = strlen(GLOBAL_STATE->SYSTEM_MODULE.ap_ssid);
@@ -553,6 +584,29 @@ esp_netif_t * wifi_init_softap(GlobalState * GLOBAL_STATE)
     wifi_ap_config.ap.pmf_cfg.required = false;
 
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_ap_config));
+
+    // Tell the phone the setup page address while it joins. Phones that
+    // skip the usual online-check still open this page.
+    static const char setup_uri[] = "http://192.168.4.1/captive-api";
+    esp_err_t dhcp_err = esp_netif_dhcps_stop(esp_netif_ap);
+    if (dhcp_err != ESP_OK && dhcp_err != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STOPPED) {
+        ESP_LOGW(TAG, "Stopping DHCP to publish the setup page: %s", esp_err_to_name(dhcp_err));
+    }
+    dhcp_err = esp_netif_dhcps_option(esp_netif_ap, ESP_NETIF_OP_SET, ESP_NETIF_CAPTIVEPORTAL_URI, (void *) setup_uri, strlen(setup_uri));
+    if (dhcp_err != ESP_OK) {
+        ESP_LOGW(TAG, "Setup page address was not added to DHCP: %s", esp_err_to_name(dhcp_err));
+    }
+    // Two minutes. A phone that connects again gets a new address offer,
+    // and that offer carries the sign-in page.
+    uint32_t setup_lease = 2;
+    dhcp_err = esp_netif_dhcps_option(esp_netif_ap, ESP_NETIF_OP_SET, ESP_NETIF_IP_ADDRESS_LEASE_TIME, &setup_lease, sizeof(setup_lease));
+    if (dhcp_err != ESP_OK) {
+        ESP_LOGW(TAG, "Setup lease was not shortened: %s", esp_err_to_name(dhcp_err));
+    }
+    dhcp_err = esp_netif_dhcps_start(esp_netif_ap);
+    if (dhcp_err != ESP_OK && dhcp_err != ESP_ERR_ESP_NETIF_DHCP_ALREADY_STARTED) {
+        ESP_LOGE(TAG, "DHCP did not restart: %s", esp_err_to_name(dhcp_err));
+    }
 
     return esp_netif_ap;
 }
@@ -734,9 +788,18 @@ void wifi_init(void * pvParameters)
 
     GLOBAL_STATE->SYSTEM_MODULE.ssid = nvs_config_get_string(NVS_CONFIG_WIFI_SSID);
 
-    /* Skip connection if SSID is null */
-    if (strlen(GLOBAL_STATE->SYSTEM_MODULE.ssid) == 0) {
+    /* Skip connection if SSID is null. The stock placeholder is not a real
+       network; joining it keeps the radio scanning and the phone's sign-in
+       check never completes. */
+    if (strlen(GLOBAL_STATE->SYSTEM_MODULE.ssid) == 0 ||
+        strcmp(GLOBAL_STATE->SYSTEM_MODULE.ssid, CONFIG_ESP_WIFI_SSID) == 0) {
+        free(GLOBAL_STATE->SYSTEM_MODULE.ssid);
+        GLOBAL_STATE->SYSTEM_MODULE.ssid = strdup("");
         ESP_LOGI(TAG, "No WiFi SSID provided, skipping connection");
+
+        // Setup Wi-Fi only. APSTA with nothing to join makes the radio scan
+        // and the phone's sign-in check times out.
+        ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
 
         /* Start WiFi */
         ESP_ERROR_CHECK(esp_wifi_start());

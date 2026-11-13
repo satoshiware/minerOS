@@ -31,27 +31,20 @@ figure {
     margin: 0;
 }
 
-.icon-bitaxe {
-    width: 41px;
-    height: 60px;
-}
-.icon-fan {
-    width: 32px;
-    height: 32px;
-    margin: 24px 0 0;
-    position: absolute;
-
-    animation: rotation 1s infinite linear;
-    transform-box: fill-box;
-    transform-origin: center;
-    will-change: transform;
+.loading-emblem {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    animation: pulse-emblem 1.6s ease-in-out infinite;
 }
 
-@keyframes rotation {
-    from {
-        transform: rotate(0deg);
+@keyframes pulse-emblem {
+    0%, 100% {
+        transform: scale(0.95);
+        opacity: 0.85;
     }
-    to {
-        transform: rotate(360deg);
+    50% {
+        transform: scale(1.05);
+        opacity: 1;
     }
 }

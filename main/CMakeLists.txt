@@ -13,6 +13,7 @@ SRCS
     "work_queue.c"
     "lv_font_portfolio-6x8.c"
     "logo.c"
+    "satoshiware_logo.c"
     "./bap/bap.c"
     "./bap/bap_protocol.c"
     "./bap/bap_uart.c"

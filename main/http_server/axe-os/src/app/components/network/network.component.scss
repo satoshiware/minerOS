@@ -1,0 +1,21 @@
+.setup-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.85rem;
+}
+
+.setup-emblem {
+    display: block;
+    height: 3.5rem;
+    width: 3.5rem;
+    flex-shrink: 0;
+    object-fit: contain;
+}
+
+.setup-logo {
+    display: block;
+    height: 2.1rem;
+    width: auto;
+    max-width: calc(100% - 3.75rem);
+}

@@ -35,15 +35,31 @@
 
     .layout-brand-lockup {
         display: flex;
-        align-items: flex-end;
-        gap: 0.4rem;
+        align-items: center;
+        gap: 0.5rem;
         min-width: 0;
         max-width: 100%;
     }
 
+    .layout-brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.6rem;
+        min-width: 0;
+        text-decoration: none;
+    }
+
+    .layout-brand-emblem {
+        display: block;
+        height: 3.3rem;
+        width: 3.3rem;
+        flex-shrink: 0;
+        object-fit: contain;
+    }
+
     .layout-brand-logo {
         display: block;
-        height: 2.15rem;
+        height: 2.05rem;
         width: auto;
         max-width: 100%;
     }
@@ -52,27 +68,34 @@
         color: #EAA006;
         font-family: 'Sofia Sans', sans-serif;
         font-weight: 800;
-        font-size: 1.7rem;
-        line-height: 0.78;
+        font-size: 1.65rem;
+        line-height: 1;
         letter-spacing: -0.035em;
-        padding-bottom: 0.12rem;
         white-space: nowrap;
     }
 
     @media screen and (max-width: 575px) {
         .layout-brand-lockup {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 0.05rem;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .layout-brand-link {
+            gap: 0.4rem;
+        }
+
+        .layout-brand-emblem {
+            height: 2.1rem;
+            width: 2.1rem;
         }
 
         .layout-brand-logo {
-            height: 1.35rem;
+            height: 1.3rem;
         }
 
         .layout-brand-os {
             font-size: 1.05rem;
-            padding-bottom: 0;
         }
     }
 

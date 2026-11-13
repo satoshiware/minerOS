@@ -18,7 +18,7 @@ typedef enum {
     SCR_WELCOME,
     SCR_FIRMWARE,
     SCR_CONNECTION,
-    SCR_BITAXE_LOGO,
+    SCR_BRAND,
     SCR_OSMU_LOGO,
     SCR_URLS,
     SCR_STATS,
@@ -30,14 +30,14 @@ typedef enum {
 #define SCREEN_UPDATE_MS 500
 #define BUTTON_WAKE_MS 5000
 
-#define SCR_CAROUSEL_START SCR_URLS
+#define SCR_CAROUSEL_START SCR_BRAND
 
-extern const lv_img_dsc_t bitaxe_logo;
-extern const lv_img_dsc_t osmu_logo;
+extern const lv_img_dsc_t satoshiware_logo;
+extern const lv_img_dsc_t satoshiware_mark;
 extern const lv_img_dsc_t identify_text;
 
 static lv_obj_t * screens[MAX_SCREENS];
-static int delays_ms[MAX_SCREENS] = {0, 0, 0, 0, 0, 1000, 3000, 3000, 10000, 10000, 10000, 10000};
+static int delays_ms[MAX_SCREENS] = {0, 0, 0, 0, 0, 1000, 5000, 0, 10000, 10000, 10000, 10000};
 
 static int current_screen_time_ms;
 static int current_screen_delay_ms;
@@ -190,7 +190,7 @@ static lv_obj_t * create_screen_with_qr(const char * ap_ssid, int expected_lines
     lv_qrcode_set_light_color(qr, lv_color_white());
 
     char data[64];
-    snprintf(data, sizeof(data), "WIFI:S:%s;;", ap_ssid);
+    snprintf(data, sizeof(data), "WIFI:T:nopass;S:%s;;", ap_ssid);
     lv_qrcode_update(qr, data, strlen(data));
 
     *out_text_cont = text_cont;
@@ -205,7 +205,7 @@ static lv_obj_t * create_scr_welcome(const char * ap_ssid) {
     lv_obj_set_width(label1, lv_pct(100));
     lv_obj_set_style_anim_duration(label1, 15000, LV_PART_MAIN);
     lv_label_set_long_mode(label1, LV_LABEL_LONG_SCROLL_CIRCULAR);
-    lv_label_set_text(label1, "Welcome to your new Bitaxe! Connect to the configuration Wi-Fi and connect the Bitaxe to your network.");
+    lv_label_set_text(label1, "Satoshiware minerOS. Join this Wi-Fi and the setup page will ask for your network.");
 
     // add a bit of padding, it looks nicer this way
     lv_obj_set_style_pad_bottom(label1, 4, LV_PART_MAIN);
@@ -214,6 +214,8 @@ static lv_obj_t * create_scr_welcome(const char * ap_ssid) {
     lv_label_set_text(label2, "Setup Wi-Fi:");
 
     lv_obj_t *label3 = lv_label_create(text_cont);
+    lv_obj_set_width(label3, lv_pct(100));
+    lv_label_set_long_mode(label3, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(label3, ap_ssid);
 
     return scr;
@@ -250,108 +252,134 @@ static lv_obj_t * create_scr_connection(const char * ssid, const char * ap_ssid)
     lv_label_set_text(label3, "Setup Wi-Fi:");
 
     lv_obj_t *label4 = lv_label_create(text_cont);
+    lv_obj_set_width(label4, lv_pct(100));
+    lv_label_set_long_mode(label4, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(label4, ap_ssid);
 
     return scr;
 }
 
-static lv_obj_t * create_scr_bitaxe_logo(const char * name, const char * board_version) {
+static lv_obj_t * create_scr_brand(void) {
     lv_obj_t * scr = lv_obj_create(NULL);
+    lv_obj_set_style_pad_all(scr, 0, LV_PART_MAIN);
+    lv_obj_set_flex_flow(scr, LV_HOR_RES < 120 ? LV_FLEX_FLOW_COLUMN : LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(scr, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(scr, 5, LV_PART_MAIN);
+    lv_obj_set_style_pad_row(scr, 4, LV_PART_MAIN);
+
+    lv_obj_t *mark = lv_img_create(scr);
+    lv_img_set_src(mark, &satoshiware_mark);
 
     lv_obj_t *img = lv_img_create(scr);
-    lv_img_set_src(img, &bitaxe_logo);
-    lv_obj_align(img, LV_ALIGN_CENTER, 0, 1);
-
-    lv_obj_t *label1 = lv_label_create(scr);
-    lv_label_set_text(label1, name);
-    lv_obj_align(label1, LV_ALIGN_RIGHT_MID, -6, -12);
-
-    lv_obj_t *label2 = lv_label_create(scr);
-    lv_label_set_text(label2, board_version);
-    lv_obj_align(label2, LV_ALIGN_RIGHT_MID, -6, -4);
+    lv_img_set_src(img, &satoshiware_logo);
 
     return scr;
 }
 
-static lv_obj_t * create_scr_osmu_logo() {
+static lv_obj_t * create_joined_screen(int expected_lines, lv_obj_t ** out_text_cont) {
     lv_obj_t * scr = lv_obj_create(NULL);
+    lv_obj_set_style_pad_all(scr, 0, LV_PART_MAIN);
+    lv_obj_set_flex_flow(scr, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(scr, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_style_pad_column(scr, 2, LV_PART_MAIN);
 
-    lv_obj_t *img = lv_img_create(scr);
-    lv_img_set_src(img, &osmu_logo);
-    lv_obj_align(img, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_t * text_cont = lv_obj_create(scr);
+    lv_obj_set_style_pad_all(text_cont, 0, LV_PART_MAIN);
+    lv_obj_set_style_border_width(text_cont, 0, LV_PART_MAIN);
+    lv_obj_set_flex_flow(text_cont, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(text_cont, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_flex_grow(text_cont, 1);
+    lv_obj_set_height(text_cont, LV_VER_RES);
+    if (screen_lines > expected_lines) lv_obj_set_style_pad_row(text_cont, 1, LV_PART_MAIN);
 
+    lv_obj_t * mark = lv_img_create(scr);
+    lv_img_set_src(mark, &satoshiware_mark);
+
+    *out_text_cont = text_cont;
     return scr;
 }
 
 static lv_obj_t * create_scr_urls() {
-    lv_obj_t * scr = create_flex_screen(4);
+    lv_obj_t * text_cont;
+    lv_obj_t * scr = create_joined_screen(4, &text_cont);
 
-    lv_obj_t *label1 = lv_label_create(scr);
+    lv_obj_t *label1 = lv_label_create(text_cont);
     lv_label_set_text(label1, "Stratum Host:");
 
-    urls_mining_url_label = lv_label_create(scr);
-    lv_obj_set_width(urls_mining_url_label, LV_HOR_RES);
+    urls_mining_url_label = lv_label_create(text_cont);
+    lv_obj_set_width(urls_mining_url_label, lv_pct(100));
     lv_label_set_long_mode(urls_mining_url_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
 
-    lv_obj_t *label3 = lv_label_create(scr);
+    lv_obj_t *label3 = lv_label_create(text_cont);
     lv_label_set_text(label3, "IP Address:");
 
-    urls_ip_addr_label = lv_label_create(scr);
+    urls_ip_addr_label = lv_label_create(text_cont);
 
     return scr;
 }
 
 static lv_obj_t * create_scr_stats() {
-    lv_obj_t * scr = create_flex_screen(4);
+    lv_obj_t * text_cont;
+    lv_obj_t * scr = create_joined_screen(4, &text_cont);
 
-    stats_hashrate_label = lv_label_create(scr);
+    stats_hashrate_label = lv_label_create(text_cont);
     lv_label_set_text(stats_hashrate_label, "Gh/s: --");
 
-    stats_efficiency_label = lv_label_create(scr);
+    stats_efficiency_label = lv_label_create(text_cont);
     lv_label_set_text(stats_efficiency_label, "J/Th: --");
 
-    stats_difficulty_label = lv_label_create(scr);
+    stats_difficulty_label = lv_label_create(text_cont);
+    lv_obj_set_width(stats_difficulty_label, lv_pct(100));
+    lv_label_set_long_mode(stats_difficulty_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(stats_difficulty_label, "Best: --");
 
-    stats_temp_label = lv_label_create(scr);
+    stats_temp_label = lv_label_create(text_cont);
     lv_label_set_text(stats_temp_label, "Temp: --");
 
     return scr;
 }
 
 static lv_obj_t * create_scr_mining() {
-    lv_obj_t * scr = create_flex_screen(4);
+    lv_obj_t * text_cont;
+    lv_obj_t * scr = create_joined_screen(4, &text_cont);
 
-    mining_block_height_label = lv_label_create(scr);
+    mining_block_height_label = lv_label_create(text_cont);
     lv_label_set_text(mining_block_height_label, "Block: --");
 
-    mining_network_difficulty_label = lv_label_create(scr);
+    mining_network_difficulty_label = lv_label_create(text_cont);
+    lv_obj_set_width(mining_network_difficulty_label, lv_pct(100));
+    lv_label_set_long_mode(mining_network_difficulty_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(mining_network_difficulty_label, "Difficulty: --");
 
-    mining_scriptsig_title_label = lv_label_create(scr);
+    mining_scriptsig_title_label = lv_label_create(text_cont);
     lv_label_set_text(mining_scriptsig_title_label, "Scriptsig:");
 
-    mining_scriptsig_label = lv_label_create(scr);
+    mining_scriptsig_label = lv_label_create(text_cont);
     lv_label_set_text(mining_scriptsig_label, "--");
-    lv_obj_set_width(mining_scriptsig_label, LV_HOR_RES);
+    lv_obj_set_width(mining_scriptsig_label, lv_pct(100));
     lv_label_set_long_mode(mining_scriptsig_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
 
     return scr;
 }
 
 static lv_obj_t * create_scr_wifi() {
-    lv_obj_t * scr = create_flex_screen(4);
+    lv_obj_t * text_cont;
+    lv_obj_t * scr = create_joined_screen(4, &text_cont);
 
-    lv_obj_t *title_label = lv_label_create(scr);
+    lv_obj_t *title_label = lv_label_create(text_cont);
     lv_label_set_text(title_label, "Wi-Fi Signal");
 
-    wifi_rssi_value_label = lv_label_create(scr);
+    wifi_rssi_value_label = lv_label_create(text_cont);
     lv_label_set_text(wifi_rssi_value_label, "RSSI: -- dBm");
 
-    wifi_signal_strength_label = lv_label_create(scr);
+    wifi_signal_strength_label = lv_label_create(text_cont);
+    lv_obj_set_width(wifi_signal_strength_label, lv_pct(100));
+    lv_label_set_long_mode(wifi_signal_strength_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(wifi_signal_strength_label, "Signal: --%%");
 
-    wifi_uptime_label = lv_label_create(scr);
+    wifi_uptime_label = lv_label_create(text_cont);
+    lv_obj_set_width(wifi_uptime_label, lv_pct(100));
+    lv_label_set_long_mode(wifi_uptime_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
     lv_label_set_text(wifi_uptime_label, "Uptime: --");
 
     return scr;
@@ -366,7 +394,7 @@ static void scr_create_overlay()
 
     notification_label = lv_label_create(lv_layer_top());
     lv_label_set_text(notification_label, "");
-    lv_obj_align(notification_label, LV_ALIGN_TOP_RIGHT, 0, 0);
+    lv_obj_align(notification_label, LV_ALIGN_TOP_LEFT, 0, 0);
 }
 
 static bool screen_show(screen_t screen)
@@ -384,10 +412,9 @@ static bool screen_show(screen_t screen)
     if (current_screen != screen) {
         lv_obj_t * scr = screens[screen];
 
-        is_valid = lv_obj_is_valid(scr);
+        is_valid = scr != NULL && lv_obj_is_valid(scr);
         if (is_valid) {
-            bool auto_del = current_screen == SCR_BITAXE_LOGO || current_screen == SCR_OSMU_LOGO;
-            lv_screen_load_anim(scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, LV_DEF_REFR_PERIOD * 128 / 8, 0, auto_del);
+            lv_screen_load_anim(scr, LV_SCR_LOAD_ANIM_MOVE_LEFT, LV_DEF_REFR_PERIOD * 128 / 8, 0, false);
         }
 
         current_screen_time_ms = 0;
@@ -541,7 +568,7 @@ static void screen_update_cb(lv_timer_t * timer)
 
     if (current_difficulty != module->best_session_nonce_diff) {
         if (module->show_new_block) {
-            lv_obj_set_width(stats_difficulty_label, LV_HOR_RES);
+            lv_obj_set_width(stats_difficulty_label, lv_pct(100));
             lv_label_set_long_mode(stats_difficulty_label, LV_LABEL_LONG_SCROLL_CIRCULAR);
             lv_label_set_text_fmt(stats_difficulty_label, "Best: %s   !!! BLOCK FOUND !!!", module->best_session_diff_string);
         } else {
@@ -704,8 +731,7 @@ esp_err_t screen_start(void * pvParameters)
             screens[SCR_WELCOME] = create_scr_welcome(SYSTEM_MODULE->ap_ssid);
             screens[SCR_FIRMWARE] = create_scr_firmware();
             screens[SCR_CONNECTION] = create_scr_connection(SYSTEM_MODULE->ssid, SYSTEM_MODULE->ap_ssid);
-            screens[SCR_BITAXE_LOGO] = create_scr_bitaxe_logo(GLOBAL_STATE->DEVICE_CONFIG.family.name, GLOBAL_STATE->DEVICE_CONFIG.board_version);
-            screens[SCR_OSMU_LOGO] = create_scr_osmu_logo();
+            screens[SCR_BRAND] = create_scr_brand();
             screens[SCR_URLS] = create_scr_urls();
             screens[SCR_STATS] = create_scr_stats();
             screens[SCR_MINING] = create_scr_mining();

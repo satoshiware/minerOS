@@ -11,7 +11,7 @@
 void websocket_set_log_task_handle(TaskHandle_t task_handle);
 
 #define MESSAGE_QUEUE_SIZE (128)
-#define MAX_WEBSOCKET_CLIENTS (10)
+#define MAX_WEBSOCKET_CLIENTS (6)
 #define LOG_BUFFER_SIZE  (512 * 1024)  /* 512 KB */
 
 typedef enum {

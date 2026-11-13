@@ -19,12 +19,12 @@
 #include "lwip/sys.h"
 
 #define DNS_PORT (53)
-#define DNS_MAX_LEN (256)
+#define DNS_MAX_LEN (512)
 
 #define OPCODE_MASK (0x7800)
 #define QR_FLAG (1 << 7)
 #define QD_TYPE_A (0x0001)
-#define ANS_TTL_SEC (300)
+#define ANS_TTL_SEC (30)
 
 static const char * TAG = "dns_server";
 
@@ -120,79 +120,72 @@ static int parse_dns_request(char * req, size_t req_len, char * dns_reply, size_
         return 0;
     }
 
-    // Set question response flag
+    // Set question response flag. AAAA gets no address so the phone
+    // uses the A answer immediately instead of waiting out a timeout.
     header->flags |= QR_FLAG;
+    header->ns_count = 0;
+    header->ar_count = 0;
 
     uint16_t qd_count = ntohs(header->qd_count);
-    header->an_count = htons(qd_count);
-
-    int reply_len = qd_count * sizeof(dns_answer_t) + req_len;
-    if (reply_len > dns_reply_max_len) {
-        return -1;
-    }
-
-    // Pointer to current answer and question
-    char * cur_ans_ptr = dns_reply + req_len;
     char * cur_qd_ptr = dns_reply + sizeof(dns_header_t);
     char name[128];
+    dns_answer_t built[4];
+    int answers = 0;
 
-    // Respond to all questions based on configured rules
     for (int qd_i = 0; qd_i < qd_count; qd_i++) {
+        char * name_ptr = cur_qd_ptr;
         char * name_end_ptr = parse_dns_name(cur_qd_ptr, name, sizeof(name));
         if (name_end_ptr == NULL) {
-            ESP_LOGE(TAG, "Failed to parse DNS question: %s", cur_qd_ptr);
+            ESP_LOGE(TAG, "Failed to parse DNS question");
             return -1;
         }
 
         dns_question_t * question = (dns_question_t *) (name_end_ptr);
         uint16_t qd_type = ntohs(question->type);
         uint16_t qd_class = ntohs(question->class);
+        cur_qd_ptr = name_end_ptr + sizeof(dns_question_t);
 
-        ESP_LOGD(TAG, "Received type: %d | Class: %d | Question for: %s", qd_type, qd_class, name);
+        // IPv6 questions get no address. The phone then uses the IPv4 answer
+        // instead of waiting until the lookup times out.
+        if (qd_type != QD_TYPE_A || answers >= 4) {
+            continue;
+        }
 
-        if (qd_type == QD_TYPE_A) {
-            esp_ip4_addr_t ip = {.addr = IPADDR_ANY};
-            // Check the configured rules to decide whether to answer this question or not
-            for (int i = 0; i < h->num_of_entries; ++i) {
-                // check if the name either corresponds to the entry, or if we should answer to all queries ("*")
-                if (strcmp(h->entry[i].name, "*") == 0 || strcmp(h->entry[i].name, name) == 0) {
-                    if (h->entry[i].if_key) {
-
-                        esp_netif_ip_info_t ip_info;
-                        esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey(h->entry[i].if_key), &ip_info);
-                        ip.addr = ip_info.ip.addr;
-                        ESP_LOGD(TAG, "TEST %s", h->entry[i].if_key);
-                        break;
-                    } else if (h->entry->ip.addr != IPADDR_ANY) {
-                        ip.addr = h->entry[i].ip.addr;
-                        break;
-                    }
+        esp_ip4_addr_t ip = {.addr = IPADDR_ANY};
+        for (int i = 0; i < h->num_of_entries; ++i) {
+            if (strcmp(h->entry[i].name, "*") == 0 || strcmp(h->entry[i].name, name) == 0) {
+                if (h->entry[i].if_key) {
+                    esp_netif_ip_info_t ip_info;
+                    esp_netif_get_ip_info(esp_netif_get_handle_from_ifkey(h->entry[i].if_key), &ip_info);
+                    ip.addr = ip_info.ip.addr;
+                    break;
+                } else if (h->entry[i].ip.addr != IPADDR_ANY) {
+                    ip.addr = h->entry[i].ip.addr;
+                    break;
                 }
             }
-            uint8_t octet1 = (ip.addr >> 24) & 0xFF;
-            uint8_t octet2 = (ip.addr >> 16) & 0xFF;
-            uint8_t octet3 = (ip.addr >> 8) & 0xFF;
-            uint8_t octet4 = ip.addr & 0xFF;
-
-            ESP_LOGI(TAG, "IP address: %u.%u.%u.%u\n", octet1, octet2, octet3, octet4);
-
-            if (ip.addr == IPADDR_ANY) { // no rule applies, continue with another question
-                continue;
-            }
-            dns_answer_t * answer = (dns_answer_t *) cur_ans_ptr;
-
-            answer->ptr_offset = htons(0xC000 | (cur_qd_ptr - dns_reply));
-            answer->type = htons(qd_type);
-            answer->class = htons(qd_class);
-            answer->ttl = htonl(ANS_TTL_SEC);
-
-            ESP_LOGD(TAG, "Answer with PTR offset: 0x%" PRIX16 " and IP 0x%" PRIX32, ntohs(answer->ptr_offset), ip.addr);
-
-            answer->addr_len = htons(sizeof(ip.addr));
-            answer->ip_addr = ip.addr;
         }
+        if (ip.addr == IPADDR_ANY) {
+            continue;
+        }
+
+        built[answers].ptr_offset = htons(0xC000 | (name_ptr - dns_reply));
+        built[answers].type = htons(qd_type);
+        built[answers].class = htons(qd_class);
+        built[answers].ttl = htonl(ANS_TTL_SEC);
+        built[answers].addr_len = htons(sizeof(ip.addr));
+        built[answers].ip_addr = ip.addr;
+        answers++;
     }
-    return reply_len;
+
+    if ((size_t) (cur_qd_ptr - dns_reply) + (size_t) answers * sizeof(dns_answer_t) > dns_reply_max_len) {
+        return -1;
+    }
+    if (answers > 0) {
+        memcpy(cur_qd_ptr, built, (size_t) answers * sizeof(dns_answer_t));
+    }
+    header->an_count = htons(answers);
+    return (int) (cur_qd_ptr - dns_reply) + answers * (int) sizeof(dns_answer_t);
 }
 
 /*
@@ -201,7 +194,7 @@ static int parse_dns_request(char * req, size_t req_len, char * dns_reply, size_
 */
 void dns_server_task(void * pvParameters)
 {
-    char rx_buffer[128];
+    char rx_buffer[DNS_MAX_LEN];
     char addr_str[128];
     int addr_family;
     int ip_protocol;
@@ -231,7 +224,6 @@ void dns_server_task(void * pvParameters)
         ESP_LOGI(TAG, "Socket bound, port %d", DNS_PORT);
 
         while (handle->started) {
-            ESP_LOGI(TAG, "Waiting for data");
             struct sockaddr_in6 source_addr; // Large enough for both IPv4 or IPv6
             socklen_t socklen = sizeof(source_addr);
             int len = recvfrom(sock, rx_buffer, sizeof(rx_buffer) - 1, 0, (struct sockaddr *) &source_addr, &socklen);
@@ -257,7 +249,7 @@ void dns_server_task(void * pvParameters)
                 char reply[DNS_MAX_LEN];
                 int reply_len = parse_dns_request(rx_buffer, len, reply, DNS_MAX_LEN, handle);
 
-                ESP_LOGI(TAG, "Received %d bytes from %s | DNS reply with len: %d", len, addr_str, reply_len);
+                ESP_LOGD(TAG, "Received %d bytes from %s | DNS reply with len: %d", len, addr_str, reply_len);
                 if (reply_len <= 0) {
                     ESP_LOGE(TAG, "Failed to prepare a DNS reply");
                 } else {
@@ -288,7 +280,7 @@ dns_server_handle_t start_dns_server(dns_server_config_t * config)
     handle->num_of_entries = config->num_of_entries;
     memcpy(handle->entry, config->item, config->num_of_entries * sizeof(dns_entry_pair_t));
 
-    xTaskCreateWithCaps(dns_server_task, "dns_server", 8192, handle, 5, &handle->task, MALLOC_CAP_SPIRAM);
+    xTaskCreateWithCaps(dns_server_task, "dns_server", 8192, handle, 8, &handle->task, MALLOC_CAP_SPIRAM);
     return handle;
 }
 

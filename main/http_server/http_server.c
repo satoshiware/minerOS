@@ -529,6 +529,9 @@ static bool file_exists(const char *path) {
     return (stat(path, &buffer) == 0);
 }
 
+static esp_err_t send_setup_page(httpd_req_t * req);
+static esp_err_t captive_portal_redirect(httpd_req_t * req);
+
 /* Send HTTP response with the contents of the requested file */
 static esp_err_t rest_common_get_handler(httpd_req_t * req)
 {
@@ -537,6 +540,12 @@ static esp_err_t rest_common_get_handler(httpd_req_t * req)
     uint8_t filePathLength = sizeof(filepath);
 
     rest_server_context_t * rest_context = (rest_server_context_t *) req->user_ctx;
+
+    if (GLOBAL_STATE != NULL && GLOBAL_STATE->SYSTEM_MODULE.ap_enabled &&
+        (strcmp(req->uri, "/") == 0 || strncmp(req->uri, "/index.html", 11) == 0)) {
+        return send_setup_page(req);
+    }
+
     strlcpy(filepath, rest_context->base_path, filePathLength);
     if (req->uri[strlen(req->uri) - 1] == '/') {
         strlcat(filepath, "/index.html", filePathLength);
@@ -553,6 +562,9 @@ static esp_err_t rest_common_get_handler(httpd_req_t * req)
 
     int fd = open(file_to_open, O_RDONLY, 0);
     if (fd == -1) {
+        if (GLOBAL_STATE != NULL && GLOBAL_STATE->SYSTEM_MODULE.ap_enabled) {
+            return captive_portal_redirect(req);
+        }
         // Set status
         httpd_resp_set_status(req, "302 Temporary Redirect");
         // Redirect to the "/" root directory
@@ -1398,9 +1410,267 @@ esp_err_t POST_OTA_update(httpd_req_t * req)
     return ESP_OK;
 }
 
+static esp_err_t send_setup_page(httpd_req_t * req)
+{
+    static const char page[] =
+        "<!DOCTYPE html><html lang=\"en\"><head>"
+        "<meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+        "<title>Satoshiware Wi-Fi</title>"
+        "<style>"
+        "*{box-sizing:border-box}"
+        "body{margin:0;min-height:100vh;background:#0f1115;color:#f3f4f6;"
+        "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;"
+        "display:flex;align-items:flex-start;justify-content:center;padding:20px 14px}"
+        ".card{width:100%;max-width:460px;background:#171a21;border:1px solid #282d38;"
+        "border-radius:12px;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,.45)}"
+        ".bar{display:flex;align-items:center;justify-content:space-between;gap:12px;"
+        "padding:14px 18px;background:#1d212a;border-bottom:1px solid #282d38}"
+        ".brand{display:flex;align-items:center;gap:10px;min-width:0}"
+        ".emblem{height:46px;width:46px;display:block;flex-shrink:0}"
+        ".wm{height:24px;width:auto;display:block;max-width:calc(100% - 56px)}"
+        ".ip{font-size:12px;color:#8b93a5;font-family:ui-monospace,Menlo,monospace}"
+        ".body{padding:18px}"
+        "h1{margin:0 0 4px;font-size:20px;font-weight:600;color:#fff}"
+        ".sub{margin:0 0 16px;font-size:14px;color:#9aa2b2}"
+        ".field{margin-bottom:14px}"
+        "label{display:block;margin-bottom:6px;font-size:13px;font-weight:500;color:#c7cdd9}"
+        ".row{display:flex;gap:8px}"
+        "input{width:100%;padding:10px 12px;font-size:15px;color:#f3f4f6;background:#0f1115;"
+        "border:1px solid #323846;border-radius:8px;outline:none}"
+        "input:focus{border-color:#f7931a}"
+        ".pw{position:relative}"
+        ".pw input{padding-right:58px}"
+        ".eye{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;"
+        "border:0;color:#9aa2b2;font-size:12px;padding:6px 8px;cursor:pointer}"
+        "button{font-family:inherit;font-size:14px;font-weight:600;border-radius:8px;"
+        "padding:10px 15px;cursor:pointer;border:1px solid transparent}"
+        ".pri{background:#f7931a;color:#111317}"
+        ".pri:disabled{opacity:.45;cursor:default}"
+        ".sec{background:#232834;color:#e5e7eb;border-color:#323846;white-space:nowrap}"
+        ".sec:disabled{opacity:.45;cursor:default}"
+        ".actions{display:flex;gap:10px;margin-top:18px}"
+        ".actions button{flex:1}"
+        ".list{margin:-6px 0 14px;border:1px solid #2c3240;border-radius:8px;background:#11141a;"
+        "max-height:180px;overflow-y:auto;display:none}"
+        ".net{display:flex;justify-content:space-between;align-items:center;width:100%;"
+        "padding:9px 12px;background:none;border:0;border-bottom:1px solid #1f2430;"
+        "color:#e5e7eb;text-align:left;font-weight:400;border-radius:0}"
+        ".net:last-child{border-bottom:0}"
+        ".net:active,.net:hover{background:#1e2430}"
+        ".sig{font-size:12px;color:#8b93a5}"
+        ".note{margin-top:14px;padding:10px 12px;border-radius:8px;font-size:13px;"
+        "line-height:1.4;display:none}"
+        ".info{background:#1c2433;border:1px solid #2e3d59;color:#d6e2ff}"
+        ".err{background:#2d1a1e;border:1px solid #5c2b33;color:#fecdd3}"
+        "</style></head><body>"
+        "<div class=\"card\">"
+        "<div class=\"bar\"><div class=\"brand\"><img class=\"emblem\" alt=\"\" src=\"data:image/png;base64,"
+        "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"
+        "\"><img class=\"wm\" alt=\"Satoshiware\" src=\"data:image/png;base64,"
+        "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"
+        "yPQzos8IqgAAAABJRU5ErkJggg=="
+        "\"></div><span class=\"ip\">192.168.4.1</span></div>"
+        "<div class=\"body\">"
+        "<h1>Satoshiware Wi-Fi</h1>"
+        "<p class=\"sub\">Enter the Wi-Fi this miner should join.</p>"
+        "<form id=\"f\" autocomplete=\"off\">"
+        "<div class=\"field\"><label for=\"host\">Hostname</label>"
+        "<input id=\"host\" name=\"hostname\" value=\"Satoshiware-Miner\" required maxlength=\"32\"></div>"
+        "<div class=\"field\"><label for=\"ssid\">Wi-Fi SSID</label>"
+        "<div class=\"row\"><input id=\"ssid\" name=\"ssid\" placeholder=\"Network name\" required maxlength=\"32\">"
+        "<button type=\"button\" id=\"scan\" class=\"sec\">Scan</button></div></div>"
+        "<div id=\"list\" class=\"list\"></div>"
+        "<div class=\"field\"><label for=\"pass\">Wi-Fi Password</label>"
+        "<div class=\"pw\"><input id=\"pass\" name=\"wifiPass\" type=\"password\" placeholder=\"Enter Wi-Fi password\" maxlength=\"63\">"
+        "<button type=\"button\" id=\"eye\" class=\"eye\">Show</button></div></div>"
+        "<div class=\"actions\">"
+        "<button type=\"submit\" id=\"save\" class=\"pri\">Save</button>"
+        "<button type=\"button\" id=\"rst\" class=\"sec\" disabled>Restart</button>"
+        "</div></form>"
+        "<div id=\"msg\" class=\"note\"></div>"
+        "</div></div>"
+        "<script>"
+        "var f=document.getElementById('f'),host=document.getElementById('host'),"
+        "ssid=document.getElementById('ssid'),pass=document.getElementById('pass'),"
+        "save=document.getElementById('save'),rst=document.getElementById('rst'),"
+        "scan=document.getElementById('scan'),list=document.getElementById('list'),"
+        "eye=document.getElementById('eye'),msg=document.getElementById('msg');"
+        "function show(t,k){msg.textContent=t;msg.className='note '+(k||'info');msg.style.display='block';}"
+        "fetch('/api/system/info').then(function(r){return r.json();}).then(function(d){"
+        "if(d&&d.hostname)host.value=d.hostname;if(d&&d.ssid)ssid.value=d.ssid;}).catch(function(){});"
+        "eye.onclick=function(){var p=pass.type==='password';pass.type=p?'text':'password';eye.textContent=p?'Hide':'Show';};"
+        "scan.onclick=function(){scan.disabled=true;scan.textContent='Scanning...';list.style.display='none';list.innerHTML='';"
+        "fetch('/api/system/wifi/scan').then(function(r){return r.json();}).then(function(d){"
+        "var a=(d&&d.networks)||[],seen={};a.sort(function(x,y){return y.rssi-x.rssi;});"
+        "a.forEach(function(n){if(!n.ssid||seen[n.ssid])return;seen[n.ssid]=1;"
+        "var b=document.createElement('button');b.type='button';b.className='net';"
+        "var nm=document.createElement('span');nm.textContent=n.ssid;"
+        "var sg=document.createElement('span');sg.className='sig';sg.textContent=(n.authmode===0?'Open \u00b7 ':'')+n.rssi+' dBm';"
+        "b.appendChild(nm);b.appendChild(sg);"
+        "b.onclick=function(){ssid.value=n.ssid;list.style.display='none';pass.focus();};"
+        "list.appendChild(b);});"
+        "if(list.children.length)list.style.display='block';else show('No nearby 2.4 GHz networks found.','info');"
+        "}).catch(function(){show('Scan could not finish. You can type the Wi-Fi name above.','err');})"
+        ".finally(function(){scan.disabled=false;scan.textContent='Scan';});};"
+        "f.onsubmit=function(e){e.preventDefault();var s=ssid.value.trim(),h=host.value.trim()||'Satoshiware-Miner';"
+        "if(!s){show('Enter the Wi-Fi name first.','err');return;}"
+        "save.disabled=true;show('Saving on the miner...','info');"
+        "fetch('/api/system',{method:'PATCH',headers:{'Content-Type':'application/json'},"
+        "body:JSON.stringify({hostname:h,ssid:s,wifiPass:pass.value})}).then(function(r){"
+        "if(!r.ok)throw 0;rst.disabled=false;"
+        "show('Saved on the miner. Tap Restart to join '+s+'.','info');"
+        "}).catch(function(){show('Could not save. Try again.','err');})"
+        ".finally(function(){save.disabled=false;});};"
+        "rst.onclick=function(){rst.disabled=true;save.disabled=true;"
+        "show('Restarting. Rejoin your home Wi-Fi, then check the miner screen for its new IP address.','info');"
+        "fetch('/api/system/restart',{method:'POST'}).catch(function(){});};"
+        "</script></body></html>";
+
+    httpd_resp_set_status(req, "200 OK");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    httpd_resp_set_hdr(req, "Connection", "close");
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    return httpd_resp_send(req, page, sizeof(page) - 1);
+}
+
+// Android shows the sign-in notice when this check is redirected.
+static esp_err_t captive_portal_redirect(httpd_req_t * req)
+{
+    if (GLOBAL_STATE == NULL || !GLOBAL_STATE->SYSTEM_MODULE.ap_enabled) {
+        httpd_resp_set_status(req, "302 Found");
+        httpd_resp_set_hdr(req, "Location", "/");
+        httpd_resp_send(req, "Redirect", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    httpd_resp_set_status(req, "302 Found");
+    httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    httpd_resp_set_hdr(req, "Connection", "close");
+    httpd_resp_set_type(req, "text/html");
+    return httpd_resp_send(req,
+        "<html><body><a href=\"http://192.168.4.1/\">Sign in</a></body></html>",
+        HTTPD_RESP_USE_STRLEN);
+}
+
+static esp_err_t captive_api_handler(httpd_req_t * req)
+{
+    httpd_resp_set_status(req, "200 OK");
+    httpd_resp_set_type(req, "application/captive+json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    httpd_resp_set_hdr(req, "Connection", "close");
+    return httpd_resp_send(req,
+        "{\"captive\":true,\"user-portal-url\":\"http://192.168.4.1/\"}",
+        HTTPD_RESP_USE_STRLEN);
+}
+
 // HTTP Error (404) Handler - Redirects all requests to the root page
 esp_err_t http_404_error_handler(httpd_req_t * req, httpd_err_code_t err)
 {
+    if (GLOBAL_STATE != NULL && GLOBAL_STATE->SYSTEM_MODULE.ap_enabled) {
+        return captive_portal_redirect(req);
+    }
+
     // Set status
     httpd_resp_set_status(req, "302 Temporary Redirect");
     // Redirect to the "/" root directory
@@ -1410,6 +1680,49 @@ esp_err_t http_404_error_handler(httpd_req_t * req, httpd_err_code_t err)
 
     ESP_LOGI(TAG, "Redirecting to root");
     return ESP_OK;
+}
+
+static bool is_setup_ap_peer(int fd)
+{
+    struct sockaddr_storage addr;
+    socklen_t len = sizeof(addr);
+    if (getpeername(fd, (struct sockaddr *) &addr, &len) != 0) {
+        return false;
+    }
+
+    uint32_t ip = 0;
+    if (addr.ss_family == AF_INET) {
+        ip = ntohl(((struct sockaddr_in *) &addr)->sin_addr.s_addr);
+    } else if (addr.ss_family == AF_INET6) {
+        const uint8_t *b = ((struct sockaddr_in6 *) &addr)->sin6_addr.s6_addr;
+        if (b[10] != 0xff || b[11] != 0xff) {
+            return false;
+        }
+        ip = ((uint32_t) b[12] << 24) | ((uint32_t) b[13] << 16) | ((uint32_t) b[14] << 8) | b[15];
+    } else {
+        return false;
+    }
+
+    return (ip & 0xFFFFFF00) == 0xC0A80400;
+}
+
+static void close_setup_ap_sessions(void * arg, esp_event_base_t base, int32_t id, void * data)
+{
+    if (server == NULL) {
+        return;
+    }
+
+    int fds[CONFIG_LWIP_MAX_SOCKETS];
+    size_t count = CONFIG_LWIP_MAX_SOCKETS;
+    if (httpd_get_client_list(server, &count, fds) != ESP_OK) {
+        return;
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        if (is_setup_ap_peer(fds[i])) {
+            httpd_sess_trigger_close(server, fds[i]);
+        }
+    }
 }
 
 esp_err_t start_rest_server(void * pvParameters)
@@ -1428,13 +1741,22 @@ esp_err_t start_rest_server(void * pvParameters)
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.uri_match_fn = httpd_uri_match_wildcard;
     config.stack_size = 8192;
-    config.max_open_sockets = 20;
-    config.max_uri_handlers = 25;
+    // Must stay below CONFIG_LWIP_MAX_ACTIVE_TCP minus the pool sockets, or
+    // lwIP runs out of TCP slots before the LRU purge ever fires.
+    config.max_open_sockets = 10;
+    config.max_uri_handlers = 56;
     config.close_fn = websocket_close_fn;
     config.lru_purge_enable = true;
+    config.keep_alive_enable = true;
+    config.keep_alive_idle = 5;
+    config.keep_alive_interval = 5;
+    config.keep_alive_count = 3;
+    config.send_wait_timeout = 3;
 
     ESP_LOGI(TAG, "Starting HTTP Server");
     REST_CHECK(httpd_start(&server, &config) == ESP_OK, "Start server failed", err_start);
+
+    esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_AP_STADISCONNECTED, close_setup_ap_sessions, NULL);
 
     // Initialize the WebSocket registry with the valid server handle
     websocket_init(server);
@@ -1590,6 +1912,46 @@ esp_err_t start_rest_server(void * pvParameters)
         .is_websocket = true
     };
     httpd_register_uri_handler(server, &ws_live);
+
+    httpd_uri_t captive_api_get = {
+        .uri = "/captive-api",
+        .method = HTTP_GET,
+        .handler = captive_api_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &captive_api_get);
+    httpd_uri_t captive_api_head = {
+        .uri = "/captive-api",
+        .method = HTTP_HEAD,
+        .handler = captive_api_handler,
+        .user_ctx = NULL
+    };
+    httpd_register_uri_handler(server, &captive_api_head);
+
+    static const char *captive_uris[] = {
+        "/hotspot-detect.html",
+        "/library/test/success.html",
+        "/generate_204",
+        "/gen_204",
+        "/connecttest.txt",
+        "/ncsi.txt",
+        "/success.txt",
+        "/canonical.html",
+        "/kindle-wifi/wifiredirect.html",
+        "/fwlink",
+    };
+    for (size_t i = 0; i < sizeof(captive_uris) / sizeof(captive_uris[0]); i++) {
+        httpd_method_t methods[] = { HTTP_GET, HTTP_HEAD };
+        for (size_t method = 0; method < sizeof(methods) / sizeof(methods[0]); method++) {
+            httpd_uri_t captive_uri = {
+                .uri = captive_uris[i],
+                .method = methods[method],
+                .handler = captive_portal_redirect,
+                .user_ctx = NULL
+            };
+            httpd_register_uri_handler(server, &captive_uri);
+        }
+    }
 
     if (!GLOBAL_STATE->filesystem_is_available) {
         /* Make default route serve Recovery */
