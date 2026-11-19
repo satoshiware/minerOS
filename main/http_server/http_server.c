@@ -37,6 +37,7 @@
 #include "display.h"
 #include "mdns.h"
 #include "http_server.h"
+#include "firmware_update_source.h"
 #include "websocket.h"
 #include "websocket_log.h"
 #include "websocket_api.h"
@@ -1725,6 +1726,16 @@ static void close_setup_ap_sessions(void * arg, esp_event_base_t base, int32_t i
     }
 }
 
+static esp_err_t GET_firmware_update_source(httpd_req_t * req)
+{
+    if (is_network_allowed(req) != ESP_OK) {
+        return httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    }
+
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_sendstr(req, "{\"url\":\"" FIRMWARE_UPDATE_BASE_URL "\"}");
+}
+
 esp_err_t start_rest_server(void * pvParameters)
 {
     GLOBAL_STATE = (GlobalState *) pvParameters;
@@ -1878,6 +1889,14 @@ esp_err_t start_rest_server(void * pvParameters)
         .user_ctx = rest_context
     };
     httpd_register_uri_handler(server, &update_system_settings_uri);
+
+    httpd_uri_t firmware_update_source_get_uri = {
+        .uri = "/api/system/update-source",
+        .method = HTTP_GET,
+        .handler = GET_firmware_update_source,
+        .user_ctx = rest_context
+    };
+    httpd_register_uri_handler(server, &firmware_update_source_get_uri);
 
     httpd_uri_t update_post_ota_firmware = {
         .uri = "/api/system/OTA", 
