@@ -6,11 +6,6 @@
             <div class="card h-full">
                 <h5>Current version: {{(info$ | async)?.version}}</h5>
 
-                <p>
-                    Check looks on the Satoshiware OS server.
-                    That server keeps the firmware, the web page, and the version in one folder.
-                </p>
-
                 <p-button (onClick)="checkForUpdate()" [disabled]="checkStatus === 'checking' || updateStatus === 'progress'">
                     Check for update
                 </p-button>
