@@ -69,13 +69,12 @@ ensure_curl
 
 FW_URL="${FW_URL:-https://raw.githubusercontent.com/satoshiware/minerOS/main/firmware/esp-miner.bin}"
 WWW_URL="${WWW_URL:-https://raw.githubusercontent.com/satoshiware/minerOS/main/firmware/www.bin}"
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Only a folder the user is standing in counts as a local install. The setup
+# command saves this script into the temp folder, and leftover bins there are
+# an older install, not the files on main.
 if [[ -f "$PWD/esp-miner.bin" && -f "$PWD/www.bin" ]]; then
   FW="$PWD/esp-miner.bin"
   WWW="$PWD/www.bin"
-elif [[ -f "$SCRIPT_DIR/esp-miner.bin" && -f "$SCRIPT_DIR/www.bin" ]]; then
-  FW="$SCRIPT_DIR/esp-miner.bin"
-  WWW="$SCRIPT_DIR/www.bin"
 else
   DLDIR="${TMPDIR:-/tmp}/SatoshiWare-miner-firmware"
   mkdir -p "$DLDIR"
