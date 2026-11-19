@@ -11,7 +11,12 @@
                 </p-button>
 
                 <p class="mt-3" *ngIf="checkStatus === 'checking'">Checking the Satoshiware OS server…</p>
-                <p class="mt-3 text-green-500" *ngIf="checkStatus === 'current'">{{checkMessage}}</p>
+                <div class="mt-3" *ngIf="checkStatus === 'current'">
+                    <p class="text-green-500">{{checkMessage}}</p>
+                    <p-button (onClick)="installPublished()" [disabled]="updateStatus === 'progress'">
+                        Reinstall
+                    </p-button>
+                </div>
                 <div class="mt-3" *ngIf="checkStatus === 'available'">
                     <p>{{checkMessage}}</p>
                     <p-button (onClick)="installPublished()" [disabled]="updateStatus === 'progress'">
