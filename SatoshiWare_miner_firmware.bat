@@ -29,10 +29,10 @@ if errorlevel 1 (
 
 set "FW_URL=https://raw.githubusercontent.com/satoshiware/minerOS/main/firmware/esp-miner.bin"
 set "WWW_URL=https://raw.githubusercontent.com/satoshiware/minerOS/main/firmware/www.bin"
+REM Only bins in the current folder are a local install. The setup command
+REM saves this script into TEMP, and leftover bins there are an older install.
 set "FW=%CD%\esp-miner.bin"
 set "WWW=%CD%\www.bin"
-if not exist "%FW%" set "FW=%~dp0esp-miner.bin"
-if not exist "%WWW%" set "WWW=%~dp0www.bin"
 if not exist "%FW%" goto download_files
 if not exist "%WWW%" goto download_files
 goto have_files
