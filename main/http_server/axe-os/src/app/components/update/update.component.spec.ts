@@ -26,7 +26,7 @@ describe('UpdateComponent', () => {
     const text = fixture.nativeElement.textContent;
     expect(component).toBeTruthy();
     expect(text).toContain('Check for update');
-    expect(text).toContain('Satoshiware OS server');
+    expect(text).not.toContain('That server keeps the firmware');
     expect(text).not.toContain('Change update source');
     expect(text).not.toContain('GitHub');
     expect(text).not.toContain('Browse');
