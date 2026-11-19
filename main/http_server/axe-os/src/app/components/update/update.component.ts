@@ -82,7 +82,7 @@ export class UpdateComponent {
 
   public installPublished(): void {
     const published = this.published;
-    if (!published || this.checkStatus !== 'available' || this.updateStatus === 'progress') {
+    if (!published || (this.checkStatus !== 'available' && this.checkStatus !== 'current') || this.updateStatus === 'progress') {
       return;
     }
 
