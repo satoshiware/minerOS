@@ -1,17 +1,23 @@
 import { Component, ViewChild } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, TimeoutError, take, timeout } from 'rxjs';
 import { HttpErrorResponse, HttpEventType } from '@angular/common/http';
 import { ToastrService } from 'ngx-toastr';
-import { FileUploadHandlerEvent, FileUpload } from 'primeng/fileupload';
 import { GithubUpdateService } from 'src/app/services/github-update.service';
-import { LoadingService } from 'src/app/services/loading.service';
 import { SystemApiService } from 'src/app/services/system.service';
 import { LiveDataService } from 'src/app/services/live-data.service';
 import { LocalStorageService } from 'src/app/local-storage.service';
 import { ModalComponent } from '../modal/modal.component';
 import { SystemInfo } from 'src/app/generated/models';
+import {
+  DEFAULT_FIRMWARE_UPDATE_SOURCE,
+  FIRMWARE_UPDATE_SOURCE_KEY,
+  FirmwareUpdateSource,
+  PublishedFirmware,
+  firmwareUpdateSourceError,
+  normalizeFirmwareUpdateSource,
+} from 'src/app/services/firmware-update-source';
 
-const IGNORE_RELEASE_CHECK_WARNING = 'IGNORE_RELEASE_CHECK_WARNING';
+type CheckStatus = 'idle' | 'checking' | 'current' | 'available' | 'error';
 
 @Component({
   selector: 'app-update',
@@ -23,168 +29,218 @@ export class UpdateComponent {
   public firmwareUpdateProgress: number = 0;
   public websiteUpdateProgress: number = 0;
 
-  public checkLatestRelease: boolean = false;
-  public latestRelease$: Observable<any>;
-
   public info$: Observable<SystemInfo>;
 
-  @ViewChild('firmwareUpload') firmwareUpload!: FileUpload;
-  @ViewChild('websiteUpload') websiteUpload!: FileUpload;
+  public source: FirmwareUpdateSource = { ...DEFAULT_FIRMWARE_UPDATE_SOURCE };
+  public draft: FirmwareUpdateSource = { ...DEFAULT_FIRMWARE_UPDATE_SOURCE };
+  public editingSource = false;
+  public sourceError = '';
 
-  @ViewChild('privacyModal') privacyModal?: ModalComponent;
+  public checkStatus: CheckStatus = 'idle';
+  public checkMessage = '';
+  public deviceVersion = '';
+  public published: PublishedFirmware | null = null;
+
   @ViewChild('progressModal') progressModal?: ModalComponent;
 
-  public updateTarget: string = '';
-  public updateStatus: 'progress' | 'success' | 'error' = 'progress';
-  public updateMessage: string = '';
+  public updatePhase: 'www' | 'firmware' = 'www';
+  public updateStatus: 'idle' | 'progress' | 'success' | 'error' = 'idle';
+  public updateMessage = '';
 
   constructor(
     private systemService: SystemApiService,
     private liveDataService: LiveDataService,
     private toastrService: ToastrService,
-    private loadingService: LoadingService,
     private githubUpdateService: GithubUpdateService,
     private localStorageService: LocalStorageService,
   ) {
-    this.latestRelease$ = this.githubUpdateService.getReleases().pipe(map(releases => {
-      return (releases as any)[0];
-    }));
-
     this.info$ = this.liveDataService.info$;
+    this.source = normalizeFirmwareUpdateSource(
+      this.localStorageService.getObject(FIRMWARE_UPDATE_SOURCE_KEY)
+    );
+    this.draft = { ...this.source };
   }
 
-  otaUpdate(event: FileUploadHandlerEvent) {
-    const file = event.files[0];
-    this.firmwareUpload.clear(); // clear the file upload component
+  public get sourceLabel(): string {
+    return `${this.source.owner}/${this.source.repo} · ${this.source.branch} · ${this.source.folder}/`;
+  }
 
-    if (file.name != 'esp-miner.bin') {
-      this.toastrService.error('Incorrect file, looking for esp-miner.bin.');
+  public get usingDefaultSource(): boolean {
+    return this.source.owner === DEFAULT_FIRMWARE_UPDATE_SOURCE.owner
+      && this.source.repo === DEFAULT_FIRMWARE_UPDATE_SOURCE.repo
+      && this.source.branch === DEFAULT_FIRMWARE_UPDATE_SOURCE.branch
+      && this.source.folder === DEFAULT_FIRMWARE_UPDATE_SOURCE.folder;
+  }
+
+  public checkForUpdate(): void {
+    if (this.checkStatus === 'checking' || this.updateStatus === 'progress') {
+      return;
+    }
+    this.checkStatus = 'checking';
+    this.checkMessage = '';
+    this.published = null;
+
+    this.info$.pipe(take(1), timeout(8000)).subscribe({
+      next: (info) => {
+        this.deviceVersion = (info?.version || '').trim();
+        this.githubUpdateService.check(this.source).subscribe({
+          next: (published) => {
+            this.published = published;
+            if (published.version === this.deviceVersion) {
+              this.checkStatus = 'current';
+              this.checkMessage = `Published version ${published.version} matches this miner.`;
+              return;
+            }
+            this.checkStatus = 'available';
+            this.checkMessage = `Published version ${published.version} is in that folder. This miner is ${this.deviceVersion || 'unknown'}.`;
+          },
+          error: (err) => {
+            this.checkStatus = 'error';
+            this.checkMessage = this.explainCheckError(err);
+          },
+        });
+      },
+      error: (err) => {
+        this.checkStatus = 'error';
+        this.checkMessage = err instanceof TimeoutError
+          ? 'The miner version is not available yet.'
+          : 'The miner version could not be read.';
+      },
+    });
+  }
+
+  public installPublished(): void {
+    const published = this.published;
+    if (!published || this.checkStatus !== 'available' || this.updateStatus === 'progress') {
       return;
     }
 
-    this.updateTarget = 'Firmware';
+    this.updatePhase = 'www';
     this.updateStatus = 'progress';
     this.updateMessage = '';
+    this.websiteUpdateProgress = 0;
+    this.firmwareUpdateProgress = 0;
     if (this.progressModal) {
       this.progressModal.isVisible = true;
     }
 
-    this.systemService.performOTAUpdate(file)
-      .subscribe({
-        next: (event: any) => {
-          if (event.type === HttpEventType.UploadProgress) {
-            this.firmwareUpdateProgress = Math.round((event.loaded / (event.total as number)) * 100);
-          } else if (event.type === HttpEventType.Response) {
-            if (event.ok) {
-              this.toastrService.success('Device restarted');
-              this.updateStatus = 'success';
-              this.updateMessage = 'Firmware updated. Device has been successfully restarted.';
-            } else {
-              this.updateStatus = 'error';
-              this.updateMessage = event.statusText || 'An unknown error occurred.';
-            }
-          }
-          else if (event instanceof HttpErrorResponse)
-          {
-            this.updateStatus = 'error';
-            this.updateMessage = event.error?.message || event.error || event.message || 'Unknown error occurred';
-          }
-        },
-        error: (err) => {
-          this.updateStatus = 'error';
-          this.updateMessage = err.error?.message || err.error || err.message || 'Unknown error occurred';
-        },
-        complete: () => {
-          this.firmwareUpdateProgress = 0;
-        }
-      });
+    this.githubUpdateService.download(published.www.downloadUrl).subscribe({
+      next: (www) => this.sendWebPage(www, published),
+      error: () => this.failUpdate('Could not download www.bin from that folder.'),
+    });
   }
 
-  otaWWWUpdate(event: FileUploadHandlerEvent) {
-    const file = event.files[0];
-    this.websiteUpload.clear(); // clear the file upload component
-
-    if (file.name != 'www.bin') {
-      this.toastrService.error('Incorrect file, looking for www.bin.');
+  public saveSource(): void {
+    const next: FirmwareUpdateSource = {
+      owner: this.draft.owner.trim(),
+      repo: this.draft.repo.trim(),
+      branch: this.draft.branch.trim(),
+      folder: this.draft.folder.trim(),
+    };
+    const error = firmwareUpdateSourceError(next);
+    this.sourceError = error || '';
+    if (error) {
       return;
     }
+    this.source = next;
+    this.draft = { ...next };
+    this.localStorageService.setObject(FIRMWARE_UPDATE_SOURCE_KEY, next);
+    this.editingSource = false;
+    this.resetCheck();
+  }
 
-    this.updateTarget = 'AxeOS';
-    this.updateStatus = 'progress';
-    this.updateMessage = '';
-    if (this.progressModal) {
-      this.progressModal.isVisible = true;
+  public resetSource(): void {
+    this.localStorageService.removeItem(FIRMWARE_UPDATE_SOURCE_KEY);
+    this.source = { ...DEFAULT_FIRMWARE_UPDATE_SOURCE };
+    this.draft = { ...this.source };
+    this.sourceError = '';
+    this.editingSource = false;
+    this.resetCheck();
+  }
+
+  public formatSize(bytes: number): string {
+    if (bytes < 1024) {
+      return `${bytes} B`;
     }
+    const kb = bytes / 1024;
+    if (kb < 1024) {
+      return `${kb.toFixed(0)} KB`;
+    }
+    return `${(kb / 1024).toFixed(1)} MB`;
+  }
 
-    this.systemService.performWWWOTAUpdate(file)
-      .subscribe({
-        next: (event: any) => {
-          if (event.type === HttpEventType.UploadProgress) {
-            this.websiteUpdateProgress = Math.round((event.loaded / (event.total as number)) * 100);
-          } else if (event.type === HttpEventType.Response) {
-            if (event.ok) {
-              this.updateStatus = 'success';
-              this.updateMessage = 'AxeOS updated. The page will reload in a few seconds.';
-              setTimeout(() => {
-                window.location.reload();
-              }, 2000);
-            } else {
-              this.updateStatus = 'error';
-              this.updateMessage = event.statusText || 'An unknown error occurred.';
-            }
-          }
-          else if (event instanceof HttpErrorResponse)
-          {
-            this.updateStatus = 'error';
-            this.updateMessage = event.error?.message || event.error || event.message || 'Unknown error occurred';
-          }
-        },
-        error: (err) => {
-          this.updateStatus = 'error';
-          this.updateMessage = err.error?.message || err.error || err.message || 'Unknown error occurred';
-        },
-        complete: () => {
-          this.websiteUpdateProgress = 0;
+  private sendWebPage(file: Blob, published: PublishedFirmware): void {
+    this.updatePhase = 'www';
+    this.systemService.performWWWOTAUpdate(file).subscribe({
+      next: (event) => {
+        if (event.type === HttpEventType.UploadProgress && event.total) {
+          this.websiteUpdateProgress = Math.round((event.loaded / event.total) * 100);
+        } else if (event.type === HttpEventType.Response && event.ok) {
+          this.downloadFirmware(published);
+        } else if (event.type === HttpEventType.Response) {
+          this.failUpdate('The web page was not accepted.');
         }
-      });
+      },
+      error: (err) => this.failUpdate(this.httpMessage(err, 'The web page update failed.')),
+    });
   }
 
-  // https://gist.github.com/elfefe/ef08e583e276e7617cd316ba2382fc40
-  public simpleMarkdownParser(markdown: string): string {
-    const toHTML = markdown
-      .replace(/^#{1,6}\s+(.+)$/gim, '<h4 class="mt-2">$1</h4>') // Headlines
-      .replace(/\*\*(.+?)\*\*|__(.+?)__/gim, '<b>$1</b>') // Bold text
-      .replace(/\*(.+?)\*|_(.+?)_/gim, '<i>$1</i>') // Italic text
-      .replace(/\[(.*?)\]\((.*?)\s?(?:"(.*?)")?\)/gm, '<a href="$2" class="underline text-white" target="_blank">$1</a>') // Markdown links
-      .replace(/(https?:\/\/github\.com\/.+\/(.+[^\s])+)/gim, (match, p1, p2) => `<a href="${p1}" target="_blank">${match.includes('/pull/') ? '#' : ''}${p2}</a>`) // Regular links
-      .replace(/@([^\s]+)/gim, ' <a href="https://github.com/$1" target="_blank">@$1</a> ') // Username links
-      .replace(/^\s*[-+*]\s?(.+)$/gim, '<li>$1</li>') // Unordered list
-      .replace(/`([^`]+)`/gim, '<code class="surface-100">$1</code>') // Code
-      .replace(/\r\n\r\n/gim, '<br>'); // Breaks
-
-    return toHTML.trim();
+  private downloadFirmware(published: PublishedFirmware): void {
+    this.updatePhase = 'firmware';
+    this.githubUpdateService.download(published.espMiner.downloadUrl).subscribe({
+      next: (firmware) => this.sendFirmware(firmware),
+      error: () => this.failUpdate('The web page was updated. esp-miner.bin could not be downloaded.'),
+    });
   }
 
-  public handleReleaseCheck(): void {
-    if (this.localStorageService.getBool(IGNORE_RELEASE_CHECK_WARNING)) {
-      this.checkLatestRelease = true;
-    } else {
-      if (this.privacyModal) {
-        this.privacyModal.isVisible = true;
-      }
-    }
+  private sendFirmware(file: Blob): void {
+    this.systemService.performOTAUpdate(file).subscribe({
+      next: (event) => {
+        if (event.type === HttpEventType.UploadProgress && event.total) {
+          this.firmwareUpdateProgress = Math.round((event.loaded / event.total) * 100);
+        } else if (event.type === HttpEventType.Response && event.ok) {
+          this.updateStatus = 'success';
+          this.updateMessage = 'Published firmware installed. The miner is restarting. Hard-refresh this page once it is back.';
+          this.toastrService.success('Device restarted');
+        } else if (event.type === HttpEventType.Response) {
+          this.failUpdate('The web page was updated. The firmware was not accepted.');
+        }
+      },
+      error: (err) => this.failUpdate(this.httpMessage(err, 'The web page was updated. The firmware update failed.')),
+    });
   }
 
-  public continueReleaseCheck(skipWarning: boolean): void {
-    this.checkLatestRelease = true;
-    if (this.privacyModal) {
-      this.privacyModal.isVisible = false;
-    }
+  private failUpdate(message: string): void {
+    this.updateStatus = 'error';
+    this.updateMessage = message;
+  }
 
-    if (!skipWarning) {
-      return;
-    }
+  private resetCheck(): void {
+    this.checkStatus = 'idle';
+    this.checkMessage = '';
+    this.published = null;
+    this.deviceVersion = '';
+  }
 
-    this.localStorageService.setBool(IGNORE_RELEASE_CHECK_WARNING, true);
+  private explainCheckError(err: unknown): string {
+    const status = err instanceof HttpErrorResponse ? err.status : 0;
+    if (status === 404) {
+      return `Nothing at ${this.sourceLabel} Make sure that branch has version.txt plus esp-miner.bin and www.bin in ${this.source.folder}/, and that the repository is public.`;
+    }
+    if (status === 403 || status === 429) {
+      return 'GitHub refused the check. Try again in a minute.';
+    }
+    if (err instanceof Error && err.message.includes('esp-miner.bin')) {
+      return err.message;
+    }
+    return `Could not read ${this.sourceLabel}`;
+  }
+
+  private httpMessage(err: unknown, fallback: string): string {
+    if (err instanceof HttpErrorResponse) {
+      const body = typeof err.error === 'string' ? err.error : err.error?.message;
+      return body || err.message || fallback;
+    }
+    return fallback;
   }
 }
