@@ -979,6 +979,10 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   onPoolChange(event: { originalEvent: Event; value: PoolLabel }) {
+    if (this.latestInfo?.splitMode) {
+      return;
+    }
+
     const useFallbackStratum = Number(event.value === 'Fallback');
 
     this.systemService.updateSystem('', { useFallbackStratum })
