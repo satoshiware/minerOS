@@ -406,6 +406,7 @@
                                 optionLabel="label"
                                 optionValue="value"
                                 (onChange)="onPoolChange($event)"
+                                [disabled]="info.splitMode"
                                 styleClass="border-100 p-dropdown--small absolute right-0"
                             />
                         </div>
