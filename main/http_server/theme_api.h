@@ -5,26 +5,26 @@
 
 #define DEFAULT_THEME "dark"
 #define DEFAULT_COLORS "{ "\
-        "\"--primary-color\":\"#F80421\", "\
+        "\"--primary-color\":\"#E0A000\", "\
         "\"--primary-color-text\":\"#ffffff\", "\
-        "\"--highlight-bg\":\"#F80421\", "\
+        "\"--highlight-bg\":\"#E0A000\", "\
         "\"--highlight-text-color\":\"#ffffff\", "\
-        "\"--focus-ring\":\"0 0 0 0.2rem rgba(248,4,33,0.2)\", "\
+        "\"--focus-ring\":\"0 0 0 0.2rem rgba(224,160,0,0.2)\", "\
         "\"--slider-bg\":\"#dee2e6\", "\
-        "\"--slider-range-bg\":\"#F80421\", "\
-        "\"--slider-handle-bg\":\"#F80421\", "\
+        "\"--slider-range-bg\":\"#E0A000\", "\
+        "\"--slider-handle-bg\":\"#E0A000\", "\
         "\"--progressbar-bg\":\"#dee2e6\", "\
-        "\"--progressbar-value-bg\":\"#F80421\", "\
-        "\"--checkbox-border\":\"#F80421\", "\
-        "\"--checkbox-bg\":\"#F80421\", "\
-        "\"--checkbox-hover-bg\":\"#df031d\", "\
-        "\"--button-bg\":\"#F80421\", "\
-        "\"--button-hover-bg\":\"#df031d\", "\
-        "\"--button-focus-shadow\":\"0 0 0 2px #ffffff, 0 0 0 4px #F80421\", "\
-        "\"--togglebutton-bg\":\"#F80421\", "\
-        "\"--togglebutton-border\":\"1px solid #F80421\", "\
-        "\"--togglebutton-hover-bg\":\"#df031d\", "\
-        "\"--togglebutton-hover-border\":\"1px solid #df031d\", "\
+        "\"--progressbar-value-bg\":\"#E0A000\", "\
+        "\"--checkbox-border\":\"#E0A000\", "\
+        "\"--checkbox-bg\":\"#E0A000\", "\
+        "\"--checkbox-hover-bg\":\"#C58D00\", "\
+        "\"--button-bg\":\"#E0A000\", "\
+        "\"--button-hover-bg\":\"#C58D00\", "\
+        "\"--button-focus-shadow\":\"0 0 0 2px #ffffff, 0 0 0 4px #E0A000\", "\
+        "\"--togglebutton-bg\":\"#E0A000\", "\
+        "\"--togglebutton-border\":\"1px solid #E0A000\", "\
+        "\"--togglebutton-hover-bg\":\"#C58D00\", "\
+        "\"--togglebutton-hover-border\":\"1px solid #C58D00\", "\
         "\"--togglebutton-text-color\":\"#ffffff\" "\
         "}"
 

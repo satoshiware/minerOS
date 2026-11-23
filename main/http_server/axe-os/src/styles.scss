@@ -26,6 +26,14 @@
 
 @import "../node_modules/primeflex/primeflex.min.css";
 
+.layout-brand-emblem,
+.layout-brand-logo,
+.setup-emblem,
+.setup-logo,
+.loading-emblem {
+    filter: hue-rotate(var(--logo-hue-rotate, 0deg));
+}
+
 
 /* You can add global styles to this file, and also import other style files */
 p-chart > div {
