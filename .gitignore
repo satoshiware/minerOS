@@ -42,3 +42,6 @@ devices.txt
 
 # Published firmware lives on the Satoshiware OS server, not in this repo.
 firmware/
+
+# Local helper that copies firmware/ onto the office share.
+publish-firmware.sh
