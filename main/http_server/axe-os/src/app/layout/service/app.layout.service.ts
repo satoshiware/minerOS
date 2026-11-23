@@ -228,8 +228,60 @@ export class LayoutService {
         );
     }
 
+    private faviconImage?: HTMLImageElement;
+    private faviconRotate = '0deg';
+
     applyLogoHue(primaryColor?: string) {
-        document.documentElement.style.setProperty('--logo-hue-rotate', this.logoHueRotate(primaryColor));
+        const rotate = this.logoHueRotate(primaryColor);
+        document.documentElement.style.setProperty('--logo-hue-rotate', rotate);
+        this.applyFaviconHue(rotate);
+    }
+
+    private applyFaviconHue(rotate: string) {
+        this.faviconRotate = rotate;
+        const link = document.querySelector<HTMLLinkElement>('#theme-favicon');
+        if (!link) {
+            return;
+        }
+        if (rotate === '0deg') {
+            link.type = 'image/png';
+            link.href = 'assets/favicon.png';
+            return;
+        }
+        if (!this.faviconImage) {
+            const image = new Image();
+            this.faviconImage = image;
+            image.onload = () => this.paintFavicon();
+            image.src = 'assets/favicon.png';
+            return;
+        }
+        if (this.faviconImage.complete && this.faviconImage.naturalWidth) {
+            this.paintFavicon();
+        }
+    }
+
+    private paintFavicon() {
+        const link = document.querySelector<HTMLLinkElement>('#theme-favicon');
+        const image = this.faviconImage;
+        if (!link || !image?.naturalWidth) {
+            return;
+        }
+        if (this.faviconRotate === '0deg') {
+            link.type = 'image/png';
+            link.href = 'assets/favicon.png';
+            return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext('2d');
+        if (!context) {
+            return;
+        }
+        context.filter = `hue-rotate(${this.faviconRotate})`;
+        context.drawImage(image, 0, 0);
+        link.type = 'image/png';
+        link.href = canvas.toDataURL('image/png');
     }
 
     private logoHueRotate(primaryColor?: string): string {
