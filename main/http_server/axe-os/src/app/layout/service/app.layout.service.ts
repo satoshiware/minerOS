@@ -105,35 +105,37 @@ export class LayoutService {
                         Object.entries(settings.accentColors).forEach(([key, value]) => {
                             document.documentElement.style.setProperty(key, value);
                         });
+                        this.applyLogoHue(settings.accentColors['--primary-color']);
                     }
                 } else {
-                    // Save default red dark theme if no settings exist
+                    // Save the baked-gold dark theme if no settings exist
                     this.themeService.saveThemeSettings({
                         colorScheme: 'dark',
                         accentColors: {
-                            '--primary-color': '#F80421',
+                            '--primary-color': '#E0A000',
                             '--primary-color-text': '#ffffff',
-                            '--highlight-bg': '#F80421',
+                            '--highlight-bg': '#E0A000',
                             '--highlight-text-color': '#ffffff',
-                            '--focus-ring': '0 0 0 0.2rem rgba(248,4,33,0.2)',
+                            '--focus-ring': '0 0 0 0.2rem rgba(224,160,0,0.2)',
                             '--slider-bg': '#dee2e6',
-                            '--slider-range-bg': '#F80421',
-                            '--slider-handle-bg': '#F80421',
+                            '--slider-range-bg': '#E0A000',
+                            '--slider-handle-bg': '#E0A000',
                             '--progressbar-bg': '#dee2e6',
-                            '--progressbar-value-bg': '#F80421',
-                            '--checkbox-border': '#F80421',
-                            '--checkbox-bg': '#F80421',
-                            '--checkbox-hover-bg': '#df031d',
-                            '--button-bg': '#F80421',
-                            '--button-hover-bg': '#df031d',
-                            '--button-focus-shadow': '0 0 0 2px #ffffff, 0 0 0 4px #F80421',
-                            '--togglebutton-bg': '#F80421',
-                            '--togglebutton-border': '1px solid #F80421',
-                            '--togglebutton-hover-bg': '#df031d',
-                            '--togglebutton-hover-border': '1px solid #df031d',
+                            '--progressbar-value-bg': '#E0A000',
+                            '--checkbox-border': '#E0A000',
+                            '--checkbox-bg': '#E0A000',
+                            '--checkbox-hover-bg': '#C58D00',
+                            '--button-bg': '#E0A000',
+                            '--button-hover-bg': '#C58D00',
+                            '--button-focus-shadow': '0 0 0 2px #ffffff, 0 0 0 4px #E0A000',
+                            '--togglebutton-bg': '#E0A000',
+                            '--togglebutton-border': '1px solid #E0A000',
+                            '--togglebutton-hover-bg': '#C58D00',
+                            '--togglebutton-hover-border': '1px solid #C58D00',
                             '--togglebutton-text-color': '#ffffff'
                         }
                     }).subscribe();
+                    this.applyLogoHue('#E0A000');
                 }
                 // Update signal with config
                 this.config.set(this._config);
@@ -219,10 +221,61 @@ export class LayoutService {
                     Object.entries(settings.accentColors).forEach(([key, value]) => {
                         document.documentElement.style.setProperty(key, value);
                     });
+                    this.applyLogoHue(settings.accentColors['--primary-color']);
                 }
             },
             error => console.error('Error loading accent colors:', error)
         );
+    }
+
+    applyLogoHue(primaryColor?: string) {
+        document.documentElement.style.setProperty('--logo-hue-rotate', this.logoHueRotate(primaryColor));
+    }
+
+    private logoHueRotate(primaryColor?: string): string {
+        const hue = this.hexHue(primaryColor);
+        if (hue == null) {
+            return '0deg';
+        }
+
+        const bakedGoldHue = 42.86;
+        let delta = hue - bakedGoldHue;
+        while (delta > 180) {
+            delta -= 360;
+        }
+        while (delta < -180) {
+            delta += 360;
+        }
+        if (Math.abs(delta) < 8) {
+            return '0deg';
+        }
+        return `${delta}deg`;
+    }
+
+    private hexHue(color?: string): number | null {
+        const match = color ? /^#([0-9a-f]{6})$/i.exec(color.trim()) : null;
+        if (!match) {
+            return null;
+        }
+        const value = parseInt(match[1], 16);
+        const red = (value >> 16) & 255;
+        const green = (value >> 8) & 255;
+        const blue = value & 255;
+        const max = Math.max(red, green, blue);
+        const min = Math.min(red, green, blue);
+        const delta = max - min;
+        if (delta === 0) {
+            return null;
+        }
+        let hue: number;
+        if (max === red) {
+            hue = ((green - blue) / delta) % 6;
+        } else if (max === green) {
+            hue = (blue - red) / delta + 2;
+        } else {
+            hue = (red - green) / delta + 4;
+        }
+        return (hue * 60 + 360) % 360;
     }
 
     changeScale(value: number) {
