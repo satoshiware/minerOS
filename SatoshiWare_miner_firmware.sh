@@ -67,11 +67,11 @@ ensure_curl() {
 
 ensure_curl
 
-FW_URL="${FW_URL:-https://raw.githubusercontent.com/satoshiware/minerOS/main/firmware/esp-miner.bin}"
-WWW_URL="${WWW_URL:-https://raw.githubusercontent.com/satoshiware/minerOS/main/firmware/www.bin}"
+FW_URL="${FW_URL:-https://updates.satoshiware.org/firmware/esp-miner.bin}"
+WWW_URL="${WWW_URL:-https://updates.satoshiware.org/firmware/www.bin}"
 # Only a folder the user is standing in counts as a local install. The setup
 # command saves this script into the temp folder, and leftover bins there are
-# an older install, not the files on main.
+# an older install, not the files on the Satoshiware OS server.
 if [[ -f "$PWD/esp-miner.bin" && -f "$PWD/www.bin" ]]; then
   FW="$PWD/esp-miner.bin"
   WWW="$PWD/www.bin"

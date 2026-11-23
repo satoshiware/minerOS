@@ -39,3 +39,6 @@ debug.log
 
 # Device list file for tools/upload2device.py
 devices.txt
+
+# Published firmware lives on the Satoshiware OS server, not in this repo.
+firmware/
