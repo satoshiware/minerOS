@@ -100,12 +100,9 @@ export class LayoutService {
                         ...this._config,
                         colorScheme: settings.colorScheme,
                     };
-                    // Apply accent colors if they exist
-                    if (settings.accentColors) {
-                        Object.entries(settings.accentColors).forEach(([key, value]) => {
-                            document.documentElement.style.setProperty(key, value);
-                        });
-                        this.applyLogoHue(settings.accentColors['--primary-color']);
+                    // Apply accent colors if they exist. Party paints its own colors.
+                    if (settings.accentColors && !this.partyOn) {
+                        this.applyAccentColors(settings.accentColors);
                     }
                 } else {
                     // Save the baked-gold dark theme if no settings exist
@@ -217,15 +214,64 @@ export class LayoutService {
         // Load theme settings from NVS
         this.themeService.getThemeSettings().subscribe(
             settings => {
-                if (settings && settings.accentColors) {
-                    Object.entries(settings.accentColors).forEach(([key, value]) => {
-                        document.documentElement.style.setProperty(key, value);
-                    });
-                    this.applyLogoHue(settings.accentColors['--primary-color']);
+                if (settings && settings.accentColors && !this.partyOn) {
+                    this.applyAccentColors(settings.accentColors);
                 }
             },
             error => console.error('Error loading accent colors:', error)
         );
+    }
+
+    partyOn = false;
+    private partyTimer: ReturnType<typeof setInterval> | null = null;
+    private partyIndex = 0;
+    private partyThemes: { primaryColor: string; accentColors: { [key: string]: string } }[] = [];
+
+    startParty(themes: { primaryColor: string; accentColors: { [key: string]: string } }[], selectedPrimary: string) {
+        if (this.partyTimer) {
+            clearInterval(this.partyTimer);
+        }
+        this.partyThemes = themes;
+        const selectedIndex = themes.findIndex(theme => this.samePartyColor(theme.primaryColor, selectedPrimary));
+        this.partyIndex = selectedIndex >= 0 ? selectedIndex : 0;
+        this.partyOn = true;
+        this.advanceParty();
+        this.partyTimer = setInterval(() => this.advanceParty(), 750);
+    }
+
+    stopParty(restoreSelected: boolean, selectedPrimary = '') {
+        if (this.partyTimer) {
+            clearInterval(this.partyTimer);
+            this.partyTimer = null;
+        }
+        const wasOn = this.partyOn;
+        this.partyOn = false;
+        if (!restoreSelected || !wasOn) {
+            return;
+        }
+        const selected = this.partyThemes.find(theme => this.samePartyColor(theme.primaryColor, selectedPrimary));
+        if (selected) {
+            this.applyAccentColors(selected.accentColors);
+        }
+    }
+
+    private advanceParty() {
+        if (!this.partyThemes.length) {
+            return;
+        }
+        this.partyIndex = (this.partyIndex + 1) % this.partyThemes.length;
+        this.applyAccentColors(this.partyThemes[this.partyIndex].accentColors);
+    }
+
+    applyAccentColors(colors: { [key: string]: string }) {
+        Object.entries(colors).forEach(([key, value]) => {
+            document.documentElement.style.setProperty(key, value);
+        });
+        this.applyLogoHue(colors['--primary-color']);
+    }
+
+    private samePartyColor(left: string, right: string) {
+        return left.trim().toLowerCase() === right.trim().toLowerCase();
     }
 
     private faviconImage?: HTMLImageElement;
