@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { LayoutService } from '../../layout/service/app.layout.service';
@@ -47,14 +47,23 @@ interface ThemeOption {
             </div>
           </div>
         </div>
+
+        <div class="col-12 mt-4">
+          <button pButton type="button"
+                  [label]="partyOn ? 'Stop party' : 'Party'"
+                  (click)="toggleParty()"></button>
+        </div>
       </div>
     </div>
   `,
   styleUrls: ['./design-component.scss']
 })
-export class ThemeConfigComponent implements OnInit {
+export class ThemeConfigComponent implements OnInit, OnDestroy {
   selectedScheme: string;
   currentColor: string = '';
+  partyOn = false;
+  private partyTimer: ReturnType<typeof setInterval> | null = null;
+  private partyIndex = 0;
   themes: ThemeOption[] = [
     {
       name: 'Gold',
@@ -263,7 +272,7 @@ export class ThemeConfigComponent implements OnInit {
             if (settings.colorScheme) {
               this.selectedScheme = settings.colorScheme;
             }
-            if (settings.accentColors) {
+            if (settings.accentColors && !this.partyOn) {
               this.applyThemeColors(settings.accentColors);
               this.currentColor = settings.accentColors['--primary-color'];
             }
@@ -274,8 +283,46 @@ export class ThemeConfigComponent implements OnInit {
   }
 
   ngOnDestroy() {
+    this.stopParty(true);
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  toggleParty() {
+    if (this.partyOn) {
+      this.stopParty(true);
+      return;
+    }
+    this.partyOn = true;
+    const selectedIndex = this.themes.findIndex(theme => this.sameColor(theme.primaryColor, this.currentColor));
+    this.partyIndex = selectedIndex >= 0 ? selectedIndex : 0;
+    this.advanceParty();
+    this.partyTimer = setInterval(() => this.advanceParty(), 500);
+  }
+
+  private advanceParty() {
+    this.partyIndex = (this.partyIndex + 1) % this.themes.length;
+    this.applyThemeColors(this.themes[this.partyIndex].accentColors);
+  }
+
+  private stopParty(restoreSelected: boolean) {
+    if (this.partyTimer) {
+      clearInterval(this.partyTimer);
+      this.partyTimer = null;
+    }
+    const wasOn = this.partyOn;
+    this.partyOn = false;
+    if (!restoreSelected || !wasOn) {
+      return;
+    }
+    const selected = this.themes.find(theme => this.sameColor(theme.primaryColor, this.currentColor));
+    if (selected) {
+      this.applyThemeColors(selected.accentColors);
+    }
+  }
+
+  private sameColor(left: string, right: string) {
+    return left.trim().toLowerCase() === right.trim().toLowerCase();
   }
 
   private applyThemeColors(colors: { [key: string]: string }) {
@@ -299,6 +346,7 @@ export class ThemeConfigComponent implements OnInit {
   }
 
   changeTheme(theme: ThemeOption) {
+    this.stopParty(false);
     this.applyThemeColors(theme.accentColors);
     this.currentColor = theme.primaryColor;
 
