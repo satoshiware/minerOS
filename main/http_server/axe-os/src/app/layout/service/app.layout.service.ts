@@ -223,6 +223,8 @@ export class LayoutService {
     }
 
     partyOn = false;
+    private readonly accentColorApplied = new Subject<void>();
+    readonly accentColorApplied$ = this.accentColorApplied.asObservable();
     private partyTimer: ReturnType<typeof setInterval> | null = null;
     private partyIndex = 0;
     private partyThemes: { primaryColor: string; accentColors: { [key: string]: string } }[] = [];
@@ -268,6 +270,7 @@ export class LayoutService {
             document.documentElement.style.setProperty(key, value);
         });
         this.applyLogoHue(colors['--primary-color']);
+        this.accentColorApplied.next();
     }
 
     private samePartyColor(left: string, right: string) {

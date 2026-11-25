@@ -258,6 +258,10 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.updateChartColors();
       });
 
+    this.layoutService.accentColorApplied$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.updateChartColors());
+
     this.pageDefaultTitle = this.titleService.getTitle();
     this.loadingService.loading$.next(true);
 
@@ -506,8 +510,9 @@ export class HomeComponent implements OnInit, OnDestroy {
       this.chartOptions.scales.y2.grid.color = surfaceBorder;
     }
 
-    // Force chart update
-    this.chartData = { ...this.chartData };
+    // Chart.js keeps its own copy of these colors. Update in place so Party
+    // can recolor the line without rebuilding the canvas.
+    this.chart?.chart?.update('none');
   }
 
   public updateSystem() {
