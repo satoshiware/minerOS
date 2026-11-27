@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { LayoutService } from '../../layout/service/app.layout.service';
@@ -47,12 +47,18 @@ interface ThemeOption {
             </div>
           </div>
         </div>
+
+        <div class="col-12 mt-4">
+          <button pButton type="button"
+                  [label]="layoutService.partyOn ? 'Stop party' : 'Party'"
+                  (click)="toggleParty()"></button>
+        </div>
       </div>
     </div>
   `,
   styleUrls: ['./design-component.scss']
 })
-export class ThemeConfigComponent implements OnInit {
+export class ThemeConfigComponent implements OnInit, OnDestroy {
   selectedScheme: string;
   currentColor: string = '';
   themes: ThemeOption[] = [
@@ -264,8 +270,10 @@ export class ThemeConfigComponent implements OnInit {
               this.selectedScheme = settings.colorScheme;
             }
             if (settings.accentColors) {
-              this.applyThemeColors(settings.accentColors);
               this.currentColor = settings.accentColors['--primary-color'];
+              if (!this.layoutService.partyOn) {
+                this.layoutService.applyAccentColors(settings.accentColors);
+              }
             }
           }
         },
@@ -278,11 +286,12 @@ export class ThemeConfigComponent implements OnInit {
     this.destroy$.complete();
   }
 
-  private applyThemeColors(colors: { [key: string]: string }) {
-    Object.entries(colors).forEach(([key, value]) => {
-      document.documentElement.style.setProperty(key, value);
-    });
-    this.layoutService.applyLogoHue(colors['--primary-color']);
+  toggleParty() {
+    if (this.layoutService.partyOn) {
+      this.layoutService.stopParty(true, this.currentColor);
+      return;
+    }
+    this.layoutService.startParty(this.themes, this.currentColor);
   }
 
   changeColorScheme(scheme: string) {
@@ -299,7 +308,8 @@ export class ThemeConfigComponent implements OnInit {
   }
 
   changeTheme(theme: ThemeOption) {
-    this.applyThemeColors(theme.accentColors);
+    this.layoutService.stopParty(false);
+    this.layoutService.applyAccentColors(theme.accentColors);
     this.currentColor = theme.primaryColor;
 
     this.themeService.saveThemeSettings({
